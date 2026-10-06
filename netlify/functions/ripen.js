@@ -29,7 +29,9 @@ A. 若 thought：找 2-3 部真正相关的经典著作
    - chapter：相关章节或核心概念，10字内
    - quote：与该灵感相关的原文片段或核心观点转述，40-80字，具体有信息量，不写空泛套话
    - relevance：说清这本书与这条灵感的具体关联，50字内
-   填 citations 数组
+   填 citations 数组，每个元素严格用这个字段名：
+   {"title":"书名（含书名号）","author":"作者","year":1985,"chapter":"章节","quote":"引用","relevance":"关联"}
+   注意：书名的字段名必须是 title，不要用 book / name / 书名 等其他写法
 
 B. 若 practical：给内容骨架和要点清单
    - sections：3-6 个板块，每个含 name（板块名，6字内）、hint（这板块要写什么，20字内）、points（3-5 个具体要点或容易踩的坑，每条20字内）
@@ -54,7 +56,15 @@ C. 若 creative：给创作结构建议
       const out = {
         type: ['thought', 'practical', 'creative'].includes(parsed.type) ? parsed.type : 'thought',
         typeLabel: parsed.typeLabel || '思想型',
-        citations: Array.isArray(parsed.citations) ? parsed.citations : [],
+        // 容错：模型偶尔用 book/name 等字段名，统一归一为 title
+        citations: (Array.isArray(parsed.citations) ? parsed.citations : []).map((c) => ({
+          title: c.title || c.book || c.name || '',
+          author: c.author || '',
+          year: c.year || null,
+          chapter: c.chapter || '',
+          quote: c.quote || '',
+          relevance: c.relevance || '',
+        })).filter((c) => c.title),
         outline: parsed.outline || { sections: [], checklist: [], tips: '' },
         structure: parsed.structure || { acts: [], references: [] },
       };
