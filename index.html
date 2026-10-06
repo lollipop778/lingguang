@@ -165,6 +165,25 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hira
 .src-t{font-size:10px;color:var(--faint);letter-spacing:.6px;font-weight:500;margin-bottom:5px}
 .src-i{font-size:11.5px;color:var(--sub);line-height:1.7;padding:2px 0;word-break:break-word}
 
+/* 补充素材区（详情弹层最显眼位置）*/
+.mat-box{background:var(--accent-soft);border:1px solid #EFE3D2;border-radius:var(--r);padding:12px;margin:2px 0 14px}
+.mat-head{font-size:12px;font-weight:600;color:var(--accent);margin-bottom:8px;display:flex;align-items:baseline;gap:6px}
+.mat-head span{font-size:10px;color:var(--faint);font-weight:400;letter-spacing:.3px}
+.mat-row{display:flex;gap:6px;align-items:flex-end}
+.mat-in{flex:1;padding:8px 10px;border:1px solid #E3D5C0;border-radius:var(--r-sm);font-size:13px;font-family:inherit;outline:none;resize:none;min-height:38px;max-height:90px;line-height:1.55;background:var(--card);color:var(--text)}
+.mat-in:focus{border-color:var(--accent)}
+.mat-in::placeholder{color:var(--faint)}
+.mat-add{padding:8px 14px;border:none;border-radius:var(--r-sm);background:var(--accent);color:#fff;font-size:12.5px;cursor:pointer;flex-shrink:0;height:38px;font-family:inherit}
+.mat-add:active{opacity:.85}
+.mat-list{margin-top:9px;display:flex;flex-direction:column;gap:5px}
+.mat-item{display:flex;align-items:flex-start;gap:8px;background:var(--card);border-radius:var(--r-sm);padding:8px 10px}
+.mat-txt{flex:1;font-size:12.5px;line-height:1.65;color:#3A3733;word-break:break-word}
+.mat-del{color:var(--faint);font-size:15px;line-height:1;cursor:pointer;flex-shrink:0;padding:0 2px}
+.mat-del:active{color:var(--red)}
+.mat-empty{font-size:11.5px;color:var(--faint);line-height:1.6;padding:4px 0 0}
+.mat-jump{width:100%;margin-top:7px;padding:8px;border-radius:var(--r-sm);border:1px solid var(--line);background:var(--accent-soft);font-size:11.5px;cursor:pointer;color:var(--accent);font-family:inherit;letter-spacing:.2px}
+.mat-jump:active{opacity:.8}
+
 /* 草稿箱条目 */
 .draft-item{border:1px solid var(--line);border-radius:var(--r-sm);padding:11px 12px;margin-bottom:7px;cursor:pointer;transition:all .15s}
 .draft-item:last-of-type{margin-bottom:0}
@@ -438,18 +457,16 @@ function openDetail(id){
   }else if(i.type==='execute'&&!i.completed){
     const opt=DUE_OPTS.find(o=>o.days===(i.dueDays===undefined?7:i.dueDays));
     actionHtml=`<div class="sh-act">
-      <button class="pri" onclick="openPush(${i.id})">记录推进</button>
-      <button onclick="completeInsp(${i.id})">标记落实</button></div>
+      <button class="pri" onclick="quickAdvance(${i.id})">推进 +25%</button>
+      <button class="ok" onclick="completeInsp(${i.id})">标记落实</button></div>
       <div class="due-line">周期：${opt?opt.label:'一周'} <span onclick="askDue(${i.id})">改周期</span></div>`;
   }else if(i.type==='execute'&&i.completed){
-    actionHtml=`<div class="sh-act"><button onclick="openDetail(${i.id})">查看成就</button></div>`;
+    actionHtml=`<div class="sh-act"><button onclick="showAchievement(${i.id})">查看成就</button></div>`;
   }else{
     actionHtml=`<div class="sh-act">
-      <button class="pri" onclick="setType(${i.id},'execute')">转为执行型</button>
-      <button onclick="openPush(${i.id})">补充想法</button></div>`;
+      <button class="pri" onclick="setType(${i.id},'execute')">转为执行型</button></div>
+      <div style="font-size:11px;color:var(--faint);margin-top:9px;line-height:1.6">攒够素材再转执行，也可以直接写成笔记。</div>`;
   }
-  const logs=(i.logs||[]).length?`<div class="sh-sec">推进记录</div>`+i.logs.map(l=>
-    `<div class="log-item"><span class="lg-d">${l.date.slice(5,10)}</span><span>${esc(l.text)}</span></div>`).join(''):'';
 
   $('#detailSheet').innerHTML=`
     <button class="sh-x" onclick="closeMask('#detailMask')">×</button>
@@ -459,15 +476,70 @@ function openDetail(id){
       <span class="edit-link" onclick="openEdit(${i.id})">编辑</span>
     </div>
     <div class="sh-tags">${tagHtml}</div>
+
+    <div class="mat-box">
+      <div class="mat-head">补充素材 <span>写笔记时直接用</span></div>
+      <div class="mat-row">
+        <textarea class="mat-in" id="matInput" rows="1" placeholder="随手记：一个发现、一句话、一组数据…"></textarea>
+        <button class="mat-add" onclick="addMaterial(${i.id})">加入</button>
+      </div>
+      <div id="matList">${matListHTML(i)}</div>
+    </div>
+
+    <div class="sh-sec">原始记录</div>
     <div class="sh-raw">${esc(i.raw||'')}</div>
-    <div class="sh-ins">${esc(i.insight||'')}</div>
-    ${i.related?`<div style="font-size:12px;color:var(--accent);line-height:1.65;margin-bottom:10px">关联：${esc(i.related)}</div>`:''}
-    ${i.actionHint?`<div style="font-size:12px;color:var(--sub);line-height:1.65">建议：${esc(i.actionHint)}</div>`:''}
-    ${logs}
+    ${i.insight?`<div class="sh-sec">洞察</div><div class="sh-ins">${esc(i.insight)}</div>`:''}
+    ${i.related?`<div style="font-size:12px;color:var(--accent);line-height:1.65;margin-top:10px">关联：${esc(i.related)}</div>`:''}
+    ${i.actionHint?`<div style="font-size:12px;color:var(--sub);line-height:1.65;margin-top:8px">建议：${esc(i.actionHint)}</div>`:''}
     <div class="sh-sec">接下来</div>
     ${actionHtml}
     <button class="export-btn" style="margin-top:9px" onclick="openDraft(${i.id})">写成小红书笔记</button>`;
   $('#detailMask').classList.add('show');
+  setTimeout(()=>{
+    const mi=$('#matInput');
+    if(mi){
+      mi.addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); addMaterial(id); } });
+      mi.addEventListener('input',()=>{ mi.style.height='auto'; mi.style.height=Math.min(mi.scrollHeight,90)+'px'; });
+    }
+  },30);
+}
+function matListHTML(i){
+  const mats=i.logs||[];
+  if(!mats.length) return '<div class="mat-empty">还没有素材。想到就随手加，写笔记时直接用。</div>';
+  return mats.map((m,n)=>`
+    <div class="mat-item">
+      <span class="mat-txt">${esc(m.text)}</span>
+      <span class="mat-del" onclick="delMaterial(${i.id},${n})">×</span>
+    </div>`).join('');
+}
+function addMaterial(id){
+  const i=inspirations.find(x=>x.id===id); if(!i) return;
+  const el=$('#matInput'); const t=el?el.value.trim():'';
+  if(!t){ showToast('写点什么再加'); return; }
+  i.logs=i.logs||[];
+  i.logs.push({date:new Date().toISOString(),text:t});
+  i.lastPushAt=new Date().toISOString();
+  save();
+  if(el){ el.value=''; el.style.height='auto'; }
+  const box=$('#matList'); if(box) box.innerHTML=matListHTML(i);
+  renderSquares(); renderTrack();
+  showToast('素材已加入');
+  if(el) el.focus();
+}
+function delMaterial(id,n){
+  const i=inspirations.find(x=>x.id===id); if(!i) return;
+  (i.logs||[]).splice(n,1);
+  save();
+  const box=$('#matList'); if(box) box.innerHTML=matListHTML(i);
+  renderSquares(); renderTrack();
+  showToast('已删除');
+}
+function quickAdvance(id){
+  const i=inspirations.find(x=>x.id===id); if(!i) return;
+  i.progress=Math.min(95,(i.progress||0)+25);
+  i.lastPushAt=new Date().toISOString();
+  save(); closeMask('#detailMask'); renderSquares(); renderTrack();
+  showToast('进度 '+i.progress+'%');
 }
 function closeMask(s){ $(s).classList.remove('show'); }
 
@@ -693,9 +765,10 @@ function renderTrack(){
         <div class="tc-top"><div class="tc-title">${esc(i.title)}</div><div class="tc-due ${dueCls}">${dueTxt}</div></div>
         <div class="bar"><div class="bar-fill" style="width:${i.progress||0}%"></div></div>
         <div class="tc-actions">
-          <button class="pri" onclick="openPush(${i.id})">记录推进</button>
+          <button onclick="quickAdvance(${i.id})">推进 +25%</button>
           <button class="ok" onclick="completeInsp(${i.id})">标记落实</button>
         </div>
+        <button class="mat-jump" onclick="openDetail(${i.id})">补充素材 · 已有 ${(i.logs||[]).length} 条</button>
         ${logs.length?`<div class="log-list">${logs.map(l=>`<div class="log-item"><span class="lg-d">${l.date.slice(5,10)}</span><span>${esc(l.text)}</span></div>`).join('')}</div>`:''}
       </div>`;
     });
@@ -705,9 +778,9 @@ function renderTrack(){
     incu.forEach(i=>{
       const logs=(i.logs||[]).slice(-2);
       html+=`<div class="track-card">
-        <div class="tc-top"><div class="tc-title">${esc(i.title)}</div><div class="tc-due">${(i.logs||[]).length} 次补充</div></div>
+        <div class="tc-top"><div class="tc-title">${esc(i.title)}</div><div class="tc-due">${(i.logs||[]).length} 条素材</div></div>
         <div class="tc-actions">
-          <button class="pri" onclick="openPush(${i.id})">补充想法</button>
+          <button class="pri" onclick="openDetail(${i.id})">补充素材</button>
           <button onclick="setType(${i.id},'execute')">转执行</button>
         </div>
         ${logs.length?`<div class="log-list">${logs.map(l=>`<div class="log-item"><span class="lg-d">${l.date.slice(5,10)}</span><span>${esc(l.text)}</span></div>`).join('')}</div>`:''}
