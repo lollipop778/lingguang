@@ -150,7 +150,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hira
 .ol-name{font-size:13.5px;font-weight:600;margin-bottom:3px}
 .ol-hint{font-size:11.5px;color:var(--sub);line-height:1.6;margin-bottom:6px}
 .ol-pts{margin:0;padding-left:16px}
-.ol-pts li{font-size:12px;color:#4A4744;line-height:1.75;margin-bottom:2px}
+.ol-pts li{font-size:12px;color:#4A4744;line-height:1.75;margin-bottom:3px}
+.ol-q{font-size:10px;color:var(--faint);letter-spacing:.5px;margin:6px 0 3px;font-weight:500}
 .tips{font-size:11.5px;color:var(--accent);background:var(--accent-soft);border-radius:var(--r-sm);padding:10px 12px;margin-top:12px;line-height:1.65}
 
 /* 小红书草稿 */
@@ -751,13 +752,14 @@ async function loadCites(id){
     let html=`<div class="type-bar">识别为 <b>${esc(d.typeLabel||'思想型')}</b> · 按这个方向催熟</div>`;
 
     if(t==='practical'){
+      html+=`<div class="tips" style="margin:0 0 12px">AI 没有实时信源，这里只给骨架。具体信息请自己查证后填入——真实内容才是这类笔记的价值所在。</div>`;
       const o=d.outline||{}, secs=o.sections||[];
       html+='<div class="outline">';
       secs.forEach((s,n)=>{
         html+=`<div class="ol-sec"><div class="ol-n">${n+1}</div><div class="ol-b">
           <div class="ol-name">${esc(s.name||'')}</div>
           ${s.hint?`<div class="ol-hint">${esc(s.hint)}</div>`:''}
-          ${(s.points||[]).length?`<ul class="ol-pts">${s.points.map(p=>`<li>${esc(p)}</li>`).join('')}</ul>`:''}
+          ${(s.questions||s.points||[]).length?`<div class="ol-q">需要你去确认</div><ul class="ol-pts">${(s.questions||s.points).map(p=>`<li>${esc(p)}</li>`).join('')}</ul>`:''}
         </div></div>`;
       });
       html+='</div>';
