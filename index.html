@@ -138,6 +138,27 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hira
 .cite .c-rel b{color:var(--accent);font-weight:600}
 .cite .c-ch{display:inline-block;font-size:10px;padding:2px 7px;background:var(--accent-soft);color:var(--accent);border-radius:4px;margin-bottom:8px;letter-spacing:.3px}
 
+/* 灵感类型识别条 */
+.type-bar{font-size:11.5px;color:var(--sub);background:var(--bg);border:1px solid var(--line);border-radius:var(--r-sm);padding:8px 11px;margin-bottom:12px;letter-spacing:.3px}
+.type-bar b{color:var(--accent);font-weight:600}
+
+/* 实用型：内容骨架 */
+.outline{display:flex;flex-direction:column;gap:8px}
+.ol-sec{display:flex;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:12px 13px}
+.ol-n{width:19px;height:19px;border-radius:50%;background:var(--accent-soft);color:var(--accent);font-size:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-weight:600;margin-top:1px}
+.ol-b{flex:1;min-width:0}
+.ol-name{font-size:13.5px;font-weight:600;margin-bottom:3px}
+.ol-hint{font-size:11.5px;color:var(--sub);line-height:1.6;margin-bottom:6px}
+.ol-pts{margin:0;padding-left:16px}
+.ol-pts li{font-size:12px;color:#4A4744;line-height:1.75;margin-bottom:2px}
+.tips{font-size:11.5px;color:var(--accent);background:var(--accent-soft);border-radius:var(--r-sm);padding:10px 12px;margin-top:12px;line-height:1.65}
+
+/* 小红书草稿 */
+.draft-box{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:15px;max-height:46vh;overflow-y:auto}
+.d-title{font-size:15px;font-weight:600;line-height:1.5;margin-bottom:10px}
+.d-body{font-size:13px;line-height:1.85;color:#3A3733;white-space:normal;word-break:break-word}
+.d-tags{font-size:12px;color:var(--blue);margin-top:12px;line-height:1.9;word-break:break-word}
+
 /* ── 我的 ───────────────────────────── */
 .me{display:flex;flex-direction:column;gap:10px}
 .stat-row{display:flex;gap:8px}
@@ -431,7 +452,8 @@ function openDetail(id){
     ${i.actionHint?`<div style="font-size:12px;color:var(--sub);line-height:1.65">建议：${esc(i.actionHint)}</div>`:''}
     ${logs}
     <div class="sh-sec">接下来</div>
-    ${actionHtml}`;
+    ${actionHtml}
+    <button class="export-btn" style="margin-top:9px" onclick="openDraft(${i.id})">写成小红书笔记</button>`;
   $('#detailMask').classList.add('show');
 }
 function closeMask(s){ $(s).classList.remove('show'); }
@@ -719,23 +741,105 @@ function pickRipen(id){ selectedRipenId=id; renderRipen(); }
 async function loadCites(id){
   const box=$('#citeContent');
   const i=inspirations.find(x=>x.id===id); if(!i){ box.innerHTML=''; return; }
-  box.innerHTML='<div class="dots"><i></i><i></i><i></i></div><div class="loading-t">正在检索相关著作...</div>';
+  box.innerHTML='<div class="dots"><i></i><i></i><i></i></div><div class="loading-t">正在分析这条灵感...</div>';
   try{
     const resp=await fetch('/api/ripen',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({inspiration:{title:i.title,insight:i.insight,tags:i.tags,raw:i.raw}})});
     if(!resp.ok) throw new Error((await resp.json()).error||'请求失败');
     const d=await resp.json();
-    const cites=(d.citations||[]);
-    if(!cites.length){ box.innerHTML='<div class="empty"><div class="e-mark"></div><p>暂未找到匹配著作</p></div>'; return; }
-    box.innerHTML=cites.map(c=>`
-      <div class="cite">
-        ${c.chapter?`<div class="c-ch">${esc(c.chapter)}</div>`:''}
-        <div class="c-book">${esc(c.title)}</div>
-        <div class="c-meta">${esc(c.author||'')}${c.year?' · '+esc(String(c.year)):''}</div>
-        ${c.quote?`<div class="c-quote">${esc(c.quote)}</div>`:''}
-        <div class="c-rel"><b>与你的灵感</b>：${esc(c.relevance||'')}</div>
-      </div>`).join('');
+    const t=d.type||'thought';
+    let html=`<div class="type-bar">识别为 <b>${esc(d.typeLabel||'思想型')}</b> · 按这个方向催熟</div>`;
+
+    if(t==='practical'){
+      const o=d.outline||{}, secs=o.sections||[];
+      html+='<div class="outline">';
+      secs.forEach((s,n)=>{
+        html+=`<div class="ol-sec"><div class="ol-n">${n+1}</div><div class="ol-b">
+          <div class="ol-name">${esc(s.name||'')}</div>
+          ${s.hint?`<div class="ol-hint">${esc(s.hint)}</div>`:''}
+          ${(s.points||[]).length?`<ul class="ol-pts">${s.points.map(p=>`<li>${esc(p)}</li>`).join('')}</ul>`:''}
+        </div></div>`;
+      });
+      html+='</div>';
+      const ck=o.checklist||[];
+      if(ck.length){ html+=`<div class="sec-label" style="margin:16px 0 8px">发布前自查</div><div class="cite"><ul class="ol-pts">${ck.map(c=>`<li>${esc(c)}</li>`).join('')}</ul></div>`; }
+      if(o.tips) html+=`<div class="tips">${esc(o.tips)}</div>`;
+    }else if(t==='creative'){
+      const st=d.structure||{}, acts=st.acts||[];
+      html+='<div class="outline">'+acts.map((a,n)=>`<div class="ol-sec"><div class="ol-n">${n+1}</div><div class="ol-b"><div class="ol-name">${esc(a.name||'')}</div>${a.hint?`<div class="ol-hint">${esc(a.hint)}</div>`:''}</div></div>`).join('')+'</div>';
+      const refs=st.references||[];
+      if(refs.length){ html+=`<div class="sec-label" style="margin:16px 0 8px">可参考</div>`+refs.map(r=>`<div class="cite"><div class="c-book">${esc(r.title||'')}</div><div class="c-meta">${esc(r.author||'')}</div><div class="c-rel">${esc(r.why||'')}</div></div>`).join(''); }
+    }else{
+      const cites=d.citations||[];
+      if(!cites.length){ box.innerHTML='<div class="empty"><div class="e-mark"></div><p>暂未找到匹配著作</p></div>'; return; }
+      html+=cites.map(c=>`
+        <div class="cite">
+          ${c.chapter?`<div class="c-ch">${esc(c.chapter)}</div>`:''}
+          <div class="c-book">${esc(c.title)}</div>
+          <div class="c-meta">${esc(c.author||'')}${c.year?' · '+esc(String(c.year)):''}</div>
+          ${c.quote?`<div class="c-quote">${esc(c.quote)}</div>`:''}
+          <div class="c-rel"><b>与你的灵感</b>：${esc(c.relevance||'')}</div>
+        </div>`).join('');
+    }
+
+    html+=`<button class="export-btn" style="margin-top:16px" onclick="openDraft(${i.id})">把这条写成小红书笔记</button>`;
+    box.innerHTML=html;
   }catch(e){ box.innerHTML='<div class="empty"><div class="e-mark"></div><p>'+esc(e.message)+'</p></div>'; }
+}
+
+// ── 一键生成小红书草稿 ────────────────
+async function openDraft(id){
+  const i=inspirations.find(x=>x.id===id); if(!i) return;
+  $('#pushSheet').innerHTML=`
+    <button class="sh-x" onclick="closeMask('#pushMask')">×</button>
+    <h3>生成小红书草稿</h3>
+    <div class="sh-sub">基于这条灵感${(i.logs||[]).length?'和你记录过的推进内容':''}</div>
+    <div class="dots"><i></i><i></i><i></i></div><div class="loading-t">AI 正在组织文案...</div>`;
+  $('#pushMask').classList.add('show');
+  try{
+    const resp=await fetch('/api/draft',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({inspiration:i,platform:'xiaohongshu'})});
+    if(!resp.ok) throw new Error((await resp.json()).error||'生成失败');
+    const d=await resp.json();
+    window._draft=(d.title||'')+'\n\n'+(d.body||'')+'\n\n'+(d.tags||[]).map(t=>'#'+t).join(' ');
+    $('#pushSheet').innerHTML=`
+      <button class="sh-x" onclick="closeMask('#pushMask')">×</button>
+      <h3>草稿已生成</h3>
+      <div class="sh-sub">改满意了再复制到小红书发</div>
+      <div class="draft-box">
+        <div class="d-title">${esc(d.title||'')}</div>
+        <div class="d-body">${esc(d.body||'').replace(/\n/g,'<br>')}</div>
+        <div class="d-tags">${(d.tags||[]).map(t=>'#'+esc(t)).join(' ')}</div>
+      </div>
+      ${d.tips?`<div class="tips">${esc(d.tips)}</div>`:''}
+      <div class="sh-act" style="margin-top:14px">
+        <button class="pri" onclick="copyDraft()">复制全文</button>
+        <button onclick="openDraft(${id})">重新生成</button>
+      </div>
+      <div style="font-size:11px;color:var(--faint);margin-top:11px;line-height:1.65">AI 只负责组织和表达。补上你自己的真实经历和照片，那才是别人愿意看的部分。</div>`;
+  }catch(e){
+    $('#pushSheet').innerHTML=`
+      <button class="sh-x" onclick="closeMask('#pushMask')">×</button>
+      <h3>生成失败</h3>
+      <div class="sh-sub">${esc(e.message)}</div>
+      <div class="sh-act" style="margin-top:14px">
+        <button class="pri" onclick="openDraft(${id})">重试</button>
+        <button onclick="closeMask('#pushMask')">关闭</button></div>`;
+  }
+}
+function copyDraft(){
+  const t=window._draft||''; if(!t){ showToast('没有内容'); return; }
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(t).then(()=>showToast('已复制，去小红书粘贴')).catch(()=>fbCopy(t));
+  }else fbCopy(t);
+}
+function fbCopy(t){
+  const ta=document.createElement('textarea'); ta.value=t;
+  ta.style.position='fixed'; ta.style.opacity='0';
+  document.body.appendChild(ta); ta.select();
+  try{ document.execCommand('copy'); showToast('已复制，去小红书粘贴'); }
+  catch{ showToast('复制失败，请长按手动选择'); }
+  document.body.removeChild(ta);
 }
 
 // ── 我的 ─────────────────────────────

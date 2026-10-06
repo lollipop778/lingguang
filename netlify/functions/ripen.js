@@ -1,4 +1,4 @@
-// /api/ripen - 催熟：针对具体灵感给出真实著作引用 (Netlify Function)
+// /api/ripen - 催熟：按灵感类型分流（思想型/实用型/创作型）
 const { deepseekChat, parseAI, json, readBody, demoRipen } = require('../../src/lib/deepseek.js');
 
 exports.handler = async (event) => {
@@ -12,26 +12,57 @@ exports.handler = async (event) => {
 
     try {
       const result = await deepseekChat([
-        { role: 'system', content: `你是一位博学的思想引路人。用户记录了一条灵感，你的任务是找出真正与之相关的经典著作，并给出有据可查的引用。
+        { role: 'system', content: `你是一位内容顾问。用户记录了一条灵感，要帮它"催熟"（变得可执行、可产出）。
 
 用户这条灵感：${topic}
 标签：${tagStr}
 
-请挑选 2-3 部与该灵感主题真正相关的经典著作或思想作品。要求：
-1. 必须是真实存在的著作，书名、作者、出版年份准确，不要编造
-2. 每部给出：title（书名）、author（作者）、year（首版年份）、chapter（相关章节或核心概念，10字内）
-3. quote：该书中与该灵感真正相关的原文片段或核心观点转述，40-80字，要具体、有信息量，不要空泛的套话。如果无法确认精确原文，就转述该书的核心观点，但必须忠实于原书思想
-4. relevance：说明这本书的这个观点与用户这条灵感的具体关联，50字内，说清楚为什么这条灵感可以在这本书里找到源头或回应
+【第一步】判断这条灵感属于哪一类，只选一个：
+- thought（思想型）：探讨概念、追问为什么、观察社会现象、思辨类。例：人为什么会无聊、消费社会的困境
+- practical（实用型）：攻略、清单、教程、经验分享、教人怎么做。例：乌鲁木齐避坑指南、如何高效开会
+- creative（创作型）：想写故事、做作品、创意表达。例：想写一个关于老人的短篇
 
-严格返回 JSON（不要 markdown）：
-{"citations":[{"title":"","author":"","year":2000,"chapter":"","quote":"","relevance":""}]}` },
-        { role: 'user', content: '请为这条灵感找出思想源头，给出真实著作的具体引用' },
+【第二步】按类型给出对应的催熟内容（只填该类型的字段，其余留空）：
+
+A. 若 thought：找 2-3 部真正相关的经典著作
+   - 必须真实存在，书名/作者/首版年份准确，不得编造
+   - chapter：相关章节或核心概念，10字内
+   - quote：与该灵感相关的原文片段或核心观点转述，40-80字，具体有信息量，不写空泛套话
+   - relevance：说清这本书与这条灵感的具体关联，50字内
+   填 citations 数组
+
+B. 若 practical：给内容骨架和要点清单
+   - sections：3-6 个板块，每个含 name（板块名，6字内）、hint（这板块要写什么，20字内）、points（3-5 个具体要点或容易踩的坑，每条20字内）
+   - checklist：发布前自查清单，3-5 条，每条20字内
+   - tips：一句提醒，关于怎么让这篇内容更有价值，40字内
+   填 outline 对象
+
+C. 若 creative：给创作结构建议
+   - acts：3-5 个结构段落，每个含 name（6字内）、hint（25字内）
+   - references：2-3 个可参考的真实作品或方向，每个含 title、author、why（25字内）
+   填 structure 对象
+
+严格返回 JSON（不要 markdown 代码块）：
+{"type":"thought","typeLabel":"思想型","citations":[],"outline":{"sections":[],"checklist":[],"tips":""},"structure":{"acts":[],"references":[]}}` },
+        { role: 'user', content: '请判断这条灵感的类型，并给出对应的催熟内容' },
       ], process.env.DEEPSEEK_API_KEY);
 
-      const parsed = parseAI(result.choices?.[0]?.message?.content || '', { citations: [] });
-      const cites = Array.isArray(parsed.citations) ? parsed.citations : [];
-      if (!cites.length) throw new Error('empty');
-      return json({ success: true, demo: false, citations: cites });
+      const parsed = parseAI(result.choices?.[0]?.message?.content || '', null);
+      if (!parsed || !parsed.type) throw new Error('parse failed');
+
+      // 规范化：保证前端能安全渲染
+      const out = {
+        type: ['thought', 'practical', 'creative'].includes(parsed.type) ? parsed.type : 'thought',
+        typeLabel: parsed.typeLabel || '思想型',
+        citations: Array.isArray(parsed.citations) ? parsed.citations : [],
+        outline: parsed.outline || { sections: [], checklist: [], tips: '' },
+        structure: parsed.structure || { acts: [], references: [] },
+      };
+      if (out.type === 'thought' && !out.citations.length) throw new Error('no citations');
+      if (out.type === 'practical' && !(out.outline.sections || []).length) throw new Error('no outline');
+      if (out.type === 'creative' && !(out.structure.acts || []).length) throw new Error('no structure');
+
+      return json({ success: true, demo: false, ...out });
     } catch (err) {
       return json(demoRipen());
     }

@@ -81,7 +81,17 @@ function demoRipen() {
     { title: '《工作、消费主义和新穷人》', author: '齐格蒙特·鲍曼', year: 2004, chapter: '消费社会', quote: '在消费社会中，贫穷不仅意味着物质匮乏，更意味着被排除在正常生活的想象之外。', relevance: '你观察到的现象，鲍曼把它追溯到了消费社会对人之价值的重新定义。' },
     { title: '《思考，快与慢》', author: '丹尼尔·卡尼曼', year: 2011, chapter: '系统一与系统二', quote: '系统一自动快速地运作，系统二则需要集中注意力处理费力的心智活动。', relevance: '你的直觉来自系统一，而这条灵感要变成洞见需要系统二的审视。' },
   ];
-  return { success: true, demo: true, citations: pool };
+  return { success: true, demo: true, type: 'thought', typeLabel: '思想型', citations: pool, outline: { sections: [], checklist: [], tips: '' }, structure: { acts: [], references: [] } };
+}
+
+function demoDraft() {
+  return {
+    success: true, demo: true,
+    title: '这条灵感值得写成一篇笔记',
+    body: '（AI 未就绪，这是示例）\n\n把你真实的经历和感受写在这里，比任何通用攻略都更有价值。',
+    tags: ['灵感', '记录', '生活'],
+    tips: '配上你自己的照片或真实细节，效果会好很多。',
+  };
 }
 
 function demoPersona() {
@@ -95,4 +105,4 @@ function demoPersona() {
   };
 }
 
-module.exports = { deepseekChat, parseAI, json, readBody, demoRefine, demoRipen, demoPersona };
+module.exports = { deepseekChat, parseAI, json, readBody, demoRefine, demoRipen, demoPersona, demoDraft };
