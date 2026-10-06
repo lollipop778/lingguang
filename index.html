@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="灵光">
+<meta name="theme-color" content="#FBFAF8">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/icon-180.png">
+<title>灵光</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#FBFAF8;--card:#FFFFFF;--text:#1B1A19;--sub:#8B8781;--faint:#B5B1AB;
+  --accent:#8A6A47;--accent-soft:#F3EDE6;--line:#EBE8E3;
+  --green:#5C7A5E;--green-soft:#EDF2ED;
+  --blue:#4A6B82;--blue-soft:#EDF1F4;
+  --amber:#9A7233;--amber-soft:#F6F0E2;
+  --red:#A34B45;--red-soft:#F8EDEC;
+  --shadow:0 1px 2px rgba(0,0,0,.04);
+  --r:10px;--r-sm:8px;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB",sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;height:100dvh;overflow:hidden;display:flex;justify-content:center}
+.app{width:100%;max-width:430px;height:100dvh;display:flex;flex-direction:column;position:relative}
+
+.header{padding:18px 20px 10px;display:flex;align-items:baseline;justify-content:space-between;flex-shrink:0}
+.header h1{font-size:19px;font-weight:600;letter-spacing:.5px}
+.header .status{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--faint)}
+.header .status .dot{width:5px;height:5px;border-radius:50%;background:#D8D5D0}
+.header .status .dot.connected{background:var(--green)}
+
+.tabs{display:flex;padding:0 16px;gap:2px;flex-shrink:0;margin-bottom:8px;border-bottom:1px solid var(--line)}
+.tab{flex:1;text-align:center;padding:9px 0 10px;font-size:13px;color:var(--faint);border:none;background:none;cursor:pointer;position:relative;font-weight:400;letter-spacing:.3px}
+.tab.active{color:var(--text);font-weight:500}
+.tab.active::after{content:'';position:absolute;bottom:-1px;left:50%;transform:translateX(-50%);width:20px;height:2px;background:var(--accent)}
+.tab .badge{position:inline-block;margin-left:3px;background:var(--red);color:#fff;font-size:9px;min-width:14px;height:14px;line-height:14px;border-radius:7px;padding:0 4px;font-weight:500}
+
+.screens{flex:1;overflow:hidden;position:relative}
+.screen{position:absolute;top:0;left:0;width:100%;height:100%;overflow-y:auto;padding:0 20px 20px;opacity:0;transform:translateY(6px);pointer-events:none;transition:all .28s}
+.screen.active{opacity:1;transform:translateY(0);pointer-events:auto}
+
+.sec-label{font-size:11px;color:var(--faint);letter-spacing:1.2px;margin:2px 0 10px;font-weight:500}
+
+/* ── 已记录方块 ─────────────────────── */
+.square-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding-bottom:96px}
+.sq{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:12px 13px;min-height:88px;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;transition:all .18s;position:relative;overflow:hidden}
+.sq:active{transform:scale(.985)}
+.sq.done{background:var(--green-soft);border-color:#DCE5DC}
+.sq .sq-title{font-size:13px;font-weight:500;line-height:1.45;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word}
+.sq .sq-foot{display:flex;align-items:center;justify-content:space-between;margin-top:8px}
+.sq .sq-tag{font-size:9px;color:var(--faint);letter-spacing:.4px}
+.sq .sq-mark{width:5px;height:5px;border-radius:50%;background:var(--faint)}
+.sq .sq-mark.exec{background:var(--blue)}
+.sq .sq-mark.incu{background:var(--amber)}
+.sq .sq-mark.done{background:var(--green)}
+
+/* ── 输入区 ─────────────────────────── */
+.input-bar{position:absolute;bottom:0;left:0;right:0;padding:10px 16px 20px;background:linear-gradient(to top,var(--bg) 72%,transparent);z-index:10}
+.input-wrap{display:flex;align-items:flex-end;gap:7px;background:var(--card);border:1px solid var(--line);border-radius:22px;padding:5px 6px 5px 14px}
+.input-wrap textarea{flex:1;border:none;outline:none;font-size:14px;padding:9px 0;resize:none;max-height:88px;font-family:inherit;background:transparent;line-height:1.5;color:var(--text)}
+.input-wrap textarea::placeholder{color:var(--faint)}
+.icon-btn{width:32px;height:32px;border-radius:50%;border:none;background:transparent;color:var(--sub);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s}
+.icon-btn:hover{background:var(--accent-soft)}
+.icon-btn svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.icon-btn.rec{background:var(--red);color:#fff;animation:pulse 1.4s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.55}}
+.send-btn{width:32px;height:32px;border-radius:50%;border:none;background:var(--accent);color:#fff;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.send-btn:disabled{background:#DEDAD4;cursor:not-allowed}
+.send-btn svg{width:15px;height:15px;fill:currentColor}
+
+/* ── 落实 ───────────────────────────── */
+.urge{background:var(--red-soft);border:1px solid #EDD9D7;border-radius:var(--r);padding:11px 13px;margin-bottom:14px;display:none}
+.urge.show{display:block}
+.urge .urge-h{font-size:11px;font-weight:600;color:var(--red);letter-spacing:.6px;margin-bottom:6px}
+.urge .urge-i{font-size:12px;color:#8A4A45;line-height:1.65;padding:2px 0}
+
+.track-card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px;margin-bottom:10px}
+.track-card .tc-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.track-card .tc-title{font-size:14px;font-weight:500;line-height:1.45;flex:1}
+.track-card .tc-due{font-size:11px;color:var(--sub);white-space:nowrap;padding-top:2px}
+.track-card .tc-due.over{color:var(--red);font-weight:500}
+.track-card .tc-due.soon{color:var(--amber);font-weight:500}
+.bar{height:3px;background:#F0EEEA;border-radius:2px;overflow:hidden;margin:10px 0 8px}
+.bar-fill{height:100%;background:var(--blue);transition:width .4s}
+.tc-actions{display:flex;gap:6px}
+.tc-actions button{flex:1;padding:8px;border-radius:var(--r-sm);border:1px solid var(--line);background:var(--card);font-size:11.5px;cursor:pointer;color:var(--text);transition:all .15s;letter-spacing:.2px}
+.tc-actions button.pri{background:var(--accent);color:#fff;border-color:var(--accent)}
+.tc-actions button.ok{background:var(--green);color:#fff;border-color:var(--green)}
+.tc-actions button:active{transform:scale(.98)}
+.log-list{margin-top:10px;border-top:1px solid var(--line);padding-top:8px}
+.log-item{font-size:11.5px;color:var(--sub);line-height:1.6;padding:3px 0;display:flex;gap:7px}
+.log-item .lg-d{color:var(--faint);flex-shrink:0;font-variant-numeric:tabular-nums}
+
+/* ── 成就 ───────────────────────────── */
+.ach{background:var(--green-soft);border:1px solid #DCE5DC;border-radius:var(--r);padding:16px;margin-bottom:10px}
+.ach .ach-h{font-size:11px;letter-spacing:1px;color:var(--green);font-weight:600;margin-bottom:8px}
+.ach .ach-title{font-size:15px;font-weight:600;line-height:1.4;margin-bottom:12px}
+.ach .ach-nums{display:flex;gap:20px;margin-bottom:10px}
+.ach .ach-num .n{font-size:22px;font-weight:600;color:var(--green);font-variant-numeric:tabular-nums}
+.ach .ach-num .l{font-size:10px;color:var(--sub);margin-top:1px;letter-spacing:.3px}
+.ach .ach-path{font-size:11.5px;color:var(--sub);line-height:1.7;border-top:1px solid #DCE5DC;padding-top:9px}
+.ach .ach-path .p-step{padding:2px 0;display:flex;gap:8px}
+.ach .ach-path .p-d{color:var(--faint);flex-shrink:0}
+
+.growth{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px;margin-bottom:10px}
+.growth .g-row{display:flex;justify-content:space-between;align-items:baseline;padding:7px 0;border-bottom:1px solid var(--line)}
+.growth .g-row:last-child{border:none}
+.growth .g-l{font-size:12px;color:var(--sub)}
+.growth .g-v{font-size:14px;font-weight:600;font-variant-numeric:tabular-nums}
+
+.empty{text-align:center;padding:52px 20px;color:var(--faint)}
+.empty p{font-size:13px;line-height:1.8}
+.empty .e-mark{width:28px;height:28px;margin:0 auto 14px;border:1px solid var(--line);border-radius:50%}
+
+/* ── 猫 ─────────────────────────────── */
+.cat-box{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:18px;margin-bottom:10px;text-align:center}
+.cat-box .cat-fig{display:flex;justify-content:center;margin-bottom:10px}
+.cat-box .cat-name{font-size:15px;font-weight:600;margin-bottom:2px}
+.cat-box .cat-stage{font-size:11px;color:var(--amber);letter-spacing:.4px;margin-bottom:3px}
+.cat-box .cat-mood{font-size:11.5px;color:var(--sub);line-height:1.5}
+.cat-box .cat-rename{margin-top:12px;display:flex;gap:6px}
+.cat-box input{flex:1;padding:7px 10px;border:1px solid var(--line);border-radius:var(--r-sm);font-size:12.5px;outline:none;font-family:inherit;background:var(--card);color:var(--text)}
+.cat-box input:focus{border-color:var(--accent)}
+.cat-box button{padding:7px 14px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--card);font-size:12px;cursor:pointer;color:var(--text)}
+.cat-box button:active{background:var(--accent-soft)}
+
+/* ── 催熟 ───────────────────────────── */
+.pick-row{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:14px;-webkit-overflow-scrolling:touch}
+.pick{flex-shrink:0;padding:7px 12px;border:1px solid var(--line);border-radius:16px;background:var(--card);font-size:11.5px;cursor:pointer;color:var(--sub);white-space:nowrap;max-width:150px;overflow:hidden;text-overflow:ellipsis}
+.pick.sel{background:var(--accent);color:#fff;border-color:var(--accent)}
+.cite{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:15px;margin-bottom:10px}
+.cite .c-book{font-size:14px;font-weight:600;line-height:1.4;margin-bottom:3px}
+.cite .c-meta{font-size:11px;color:var(--faint);margin-bottom:10px;letter-spacing:.3px}
+.cite .c-quote{font-size:13px;line-height:1.85;color:#3A3733;padding:11px 13px;background:var(--bg);border-left:2px solid var(--accent);border-radius:0 var(--r-sm) var(--r-sm) 0;margin-bottom:10px}
+.cite .c-rel{font-size:12px;color:var(--sub);line-height:1.7}
+.cite .c-rel b{color:var(--accent);font-weight:600}
+.cite .c-ch{display:inline-block;font-size:10px;padding:2px 7px;background:var(--accent-soft);color:var(--accent);border-radius:4px;margin-bottom:8px;letter-spacing:.3px}
+
+/* ── 我的 ───────────────────────────── */
+.me{display:flex;flex-direction:column;gap:10px}
+.stat-row{display:flex;gap:8px}
+.stat{flex:1;background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px 8px;text-align:center}
+.stat .n{font-size:24px;font-weight:600;font-variant-numeric:tabular-nums}
+.stat .l{font-size:10px;color:var(--faint);margin-top:3px;letter-spacing:.4px}
+.card-box{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:15px}
+.card-box .cb-title{font-size:13px;font-weight:600;margin-bottom:11px;letter-spacing:.3px}
+.card-box label{font-size:11.5px;color:var(--sub);display:block;margin-bottom:5px}
+.card-box input[type=number]{width:70px;padding:7px 9px;border:1px solid var(--line);border-radius:var(--r-sm);font-size:13px;outline:none;font-family:inherit}
+.card-box .hint{font-size:11px;color:var(--faint);margin-top:7px;line-height:1.6}
+.card-box .save{margin-top:10px;padding:7px 16px;background:var(--accent);color:#fff;border:none;border-radius:var(--r-sm);font-size:12.5px;cursor:pointer}
+.persona-type{font-size:17px;font-weight:600;color:var(--accent);margin-bottom:5px}
+.persona-arch{font-size:12.5px;color:var(--sub);line-height:1.7;margin-bottom:11px}
+.persona-tr{font-size:12.5px;color:var(--text);line-height:1.6;padding:3px 0 3px 12px;position:relative}
+.persona-tr::before{content:'';position:absolute;left:0;top:11px;width:4px;height:1px;background:var(--accent)}
+.persona-bs{font-size:11.5px;color:var(--sub);padding:9px 11px;background:var(--amber-soft);border-radius:var(--r-sm);margin-top:9px;line-height:1.65}
+.persona-sg{font-size:12px;color:var(--accent);padding:9px 11px;background:var(--accent-soft);border-radius:var(--r-sm);margin-top:7px;line-height:1.65}
+.export-btn{width:100%;padding:12px;border-radius:var(--r);border:1px solid var(--line);background:var(--card);font-size:13px;cursor:pointer;color:var(--text);font-family:inherit}
+.export-btn:active{background:var(--accent-soft)}
+
+/* ── 详情弹层 ───────────────────────── */
+.mask{position:absolute;inset:0;background:rgba(20,18,16,.38);z-index:100;display:none;align-items:flex-end}
+.mask.show{display:flex}
+.sheet{width:100%;background:var(--card);border-radius:16px 16px 0 0;padding:20px 20px 24px;animation:up .28s ease;max-height:82%;overflow-y:auto}
+@keyframes up{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.sheet .sh-x{position:absolute;right:16px;top:14px;background:none;border:none;font-size:22px;color:var(--faint);cursor:pointer;line-height:1}
+.sheet h3{font-size:16px;font-weight:600;line-height:1.45;margin-bottom:6px;padding-right:24px}
+.sheet .sh-sub{font-size:11px;color:var(--faint);margin-bottom:14px;letter-spacing:.3px}
+.sheet .sh-tags{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px}
+.sheet .sh-tag{font-size:10px;padding:3px 9px;background:var(--bg);border-radius:12px;color:var(--sub)}
+.sheet .sh-raw{font-size:12px;color:var(--faint);padding:10px 12px;background:var(--bg);border-radius:var(--r-sm);line-height:1.6;margin-bottom:11px}
+.sheet .sh-ins{font-size:13.5px;line-height:1.8;color:#3A3733;margin-bottom:12px}
+.sheet .sh-sec{font-size:11px;color:var(--faint);letter-spacing:.8px;margin:14px 0 7px;font-weight:500}
+.sheet .sh-act{display:flex;gap:6px;flex-wrap:wrap}
+.sheet .sh-act button{flex:1;min-width:88px;padding:9px;border-radius:var(--r-sm);border:1px solid var(--line);background:var(--card);font-size:12px;cursor:pointer;color:var(--text);font-family:inherit}
+.sheet .sh-act button.pri{background:var(--blue);color:#fff;border-color:var(--blue)}
+.sheet .sh-act button.inc{background:var(--amber);color:#fff;border-color:var(--amber)}
+.sheet .sh-act button:active{transform:scale(.98)}
+
+/* 推进输入弹层 */
+.push-in{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:var(--r-sm);font-size:13px;font-family:inherit;outline:none;resize:none;min-height:64px;line-height:1.6;color:var(--text);background:var(--card)}
+.push-in:focus{border-color:var(--accent)}
+.push-in::placeholder{color:var(--faint)}
+
+/* 周期选择 */
+.due-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:4px}
+.due-opt{border:1px solid var(--line);border-radius:var(--r-sm);padding:11px 10px;cursor:pointer;background:var(--card);transition:all .15s}
+.due-opt.sel{border-color:var(--accent);background:var(--accent-soft)}
+.due-opt:active{transform:scale(.98)}
+.due-opt .do-label{font-size:13px;font-weight:500;margin-bottom:2px}
+.due-opt .do-desc{font-size:10.5px;color:var(--faint);line-height:1.5}
+.due-opt.sel .do-label{color:var(--accent)}
+.due-line{font-size:11px;color:var(--sub);margin-top:10px;letter-spacing:.3px}
+.due-line span{color:var(--accent);cursor:pointer;margin-left:4px}
+.due-line span:active{opacity:.6}
+
+/* 编辑表单 */
+.edit-link{font-size:11px;color:var(--accent);cursor:pointer;letter-spacing:.3px;flex-shrink:0;padding:2px 0}
+.edit-link:active{opacity:.6}
+.ed-field{margin-bottom:12px}
+.ed-field label{font-size:11px;color:var(--sub);display:block;margin-bottom:5px;letter-spacing:.3px}
+.ed-in{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:var(--r-sm);font-size:13px;font-family:inherit;outline:none;background:var(--card);color:var(--text)}
+.ed-in:focus{border-color:var(--accent)}
+.ed-ta{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:var(--r-sm);font-size:13px;font-family:inherit;outline:none;resize:vertical;min-height:62px;line-height:1.65;background:var(--card);color:var(--text)}
+.ed-ta:focus{border-color:var(--accent)}
+.del-btn{width:100%;padding:10px;border-radius:var(--r-sm);border:1px solid #EDD9D7;background:var(--card);font-size:12.5px;cursor:pointer;color:var(--red);font-family:inherit}
+.del-btn:active{background:var(--red-soft)}
+
+.toast{position:absolute;bottom:96px;left:50%;transform:translateX(-50%);background:rgba(28,26,24,.92);color:#fff;font-size:12.5px;padding:9px 16px;border-radius:16px;z-index:200;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap;max-width:88%;overflow:hidden;text-overflow:ellipsis}
+.toast.show{opacity:1}
+.dots{display:flex;justify-content:center;gap:5px;padding:22px 0 8px}
+.dots i{width:5px;height:5px;border-radius:50%;background:var(--accent);animation:b 1.2s infinite;display:block}
+.dots i:nth-child(2){animation-delay:.15s}
+.dots i:nth-child(3){animation-delay:.3s}
+@keyframes b{0%,80%,100%{transform:scale(.55);opacity:.35}40%{transform:scale(1);opacity:1}}
+.loading-t{text-align:center;font-size:12px;color:var(--faint);padding-bottom:20px}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <h1>灵光</h1>
+    <div class="status"><span class="dot" id="statusDot"></span><span id="statusText">离线</span></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="capture">记录</button>
+    <button class="tab" data-tab="track">落实<span class="badge" id="trackBadge" style="display:none">0</span></button>
+    <button class="tab" data-tab="ripen">催熟</button>
+    <button class="tab" data-tab="me">我的</button>
+  </div>
+
+  <div class="screens">
+    <!-- 记录 -->
+    <div class="screen active" id="screen-capture">
+      <div class="sec-label">已记录</div>
+      <div class="square-grid" id="squareGrid"></div>
+      <div class="input-bar">
+        <div class="input-wrap">
+          <textarea id="chatInput" placeholder="随手记下想法..." rows="1" style="overflow:hidden"></textarea>
+          <button class="icon-btn" id="voiceBtn" title="语音输入">
+            <svg viewBox="0 0 24 24"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3z"/><path d="M19 11a7 7 0 0 1-14 0M12 18v3"/></svg>
+          </button>
+          <button class="send-btn" id="sendBtn" disabled>
+            <svg viewBox="0 0 24 24"><path d="M2 21L23 12 2 3v7l15 2-15 2z"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 落实 -->
+    <div class="screen" id="screen-track">
+      <div class="urge" id="urge"></div>
+      <div id="trackContent"></div>
+    </div>
+
+    <!-- 催熟 -->
+    <div class="screen" id="screen-ripen">
+      <div class="sec-label">选一条灵感，找它的思想源头</div>
+      <div class="pick-row" id="pickRow"></div>
+      <div id="citeContent"></div>
+    </div>
+
+    <!-- 我的 -->
+    <div class="screen" id="screen-me">
+      <div class="me" id="meContent"></div>
+    </div>
+  </div>
+
+  <div class="mask" id="detailMask"><div class="sheet" id="detailSheet"></div></div>
+  <div class="mask" id="pushMask"><div class="sheet" id="pushSheet"></div></div>
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const $$ = s => document.querySelectorAll(s);
+
+let inspirations = JSON.parse(localStorage.getItem('lingguang_data') || '[]');
+let settings = JSON.parse(localStorage.getItem('lingguang_settings') || '{"overloadThreshold":5,"catName":"小光"}');
+let isProcessing = false, isLiveMode = false;
+let pushTargetId = null;
+let selectedRipenId = null;
+
+const chatInput = $('#chatInput'), sendBtn = $('#sendBtn'), squareGrid = $('#squareGrid');
+const statusDot = $('#statusDot'), statusText = $('#statusText');
+const trackContent = $('#trackContent'), urge = $('#urge'), trackBadge = $('#trackBadge');
+
+// ── 猫 SVG（纯线条，无 emoji）─────────
+const CAT_STAGES = [
+  { key:'kit',  name:'幼崽', need:0 },
+  { key:'grow', name:'成长', need:5 },
+  { key:'adult',name:'成猫', need:15 },
+];
+function catSVG(stage){
+  const open = stage >= 1, stripes = stage >= 2, scale = [.86,.94,1][stage];
+  const col = '#8A6A47';
+  return `<svg viewBox="0 0 100 112" width="${Math.round(94*scale)}" height="${Math.round(105*scale)}" fill="none" stroke="${col}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M31 30 L29 11 L45 22"/>
+    <path d="M69 30 L71 11 L55 22"/>
+    <circle cx="50" cy="45" r="21"/>
+    ${stripes ? `<path d="M45 26 L45 33" stroke-width="1.3"/><path d="M50 24 L50 32" stroke-width="1.3"/><path d="M55 26 L55 33" stroke-width="1.3"/>` : ''}
+    ${open
+      ? `<circle cx="42" cy="44" r="2.1" fill="${col}" stroke="none"/><circle cx="58" cy="44" r="2.1" fill="${col}" stroke="none"/>`
+      : `<path d="M38 45 Q42 48 46 45" stroke-width="1.4"/><path d="M54 45 Q58 48 62 45" stroke-width="1.4"/>`}
+    <path d="M50 52 L47.5 55.5 L52.5 55.5 Z" fill="${col}" stroke="none"/>
+    <path d="M50 56 Q47 59 44 57.5" stroke-width="1.2"/><path d="M50 56 Q53 59 56 57.5" stroke-width="1.2"/>
+    ${stripes ? `<path d="M36 54 L27 52" stroke-width="1.1"/><path d="M36 58 L27 58" stroke-width="1.1"/><path d="M64 54 L73 52" stroke-width="1.1"/><path d="M64 58 L73 58" stroke-width="1.1"/>` : ''}
+    <path d="M33 63 C27 78 29 99 50 99 C71 99 73 78 67 63"/>
+    <path d="M68 94 C80 95 84 80 78 71" stroke-width="1.6"/>
+  </svg>`;
+}
+function catValue(){
+  const pushes = inspirations.reduce((a,i)=>a+((i.logs||[]).length),0);
+  const done = inspirations.filter(i=>i.completed).length;
+  return pushes + done*3;
+}
+function catStage(){ const v=catValue(); let s=0; CAT_STAGES.forEach((x,i)=>{ if(v>=x.need) s=i; }); return s; }
+function catMood(){
+  const last = inspirations.reduce((m,i)=>{
+    const t = i.completedAt || i.lastPushAt || i.time;
+    return (!m || new Date(t) > new Date(m)) ? t : m;
+  }, null);
+  if(!last) return '还没有开始，先记一条灵感吧';
+  const d = Math.floor((Date.now()-new Date(last).getTime())/86400000);
+  if(d>=7) return '有些日子没动静了，灵感等着被落实';
+  if(d>=3) return '最近推进有点慢，要不要先做一小步';
+  return '状态不错，保持这个节奏';
+}
+
+// ── 初始化 ───────────────────────────
+renderSquares();
+checkServer();
+chatInput.addEventListener('input',()=>{ sendBtn.disabled=!chatInput.value.trim()||isProcessing; autoH(); });
+chatInput.addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();capture();} });
+sendBtn.addEventListener('click',capture);
+function autoH(){ chatInput.style.height='auto'; chatInput.style.height=Math.min(chatInput.scrollHeight,88)+'px'; }
+
+$$('.tab').forEach(t=>t.addEventListener('click',()=>{
+  const tab=t.dataset.tab;
+  $$('.tab').forEach(x=>x.classList.remove('active')); t.classList.add('active');
+  $$('.screen').forEach(s=>s.classList.remove('active')); $('#screen-'+tab).classList.add('active');
+  if(tab==='track') renderTrack();
+  if(tab==='ripen') renderRipen();
+  if(tab==='me') renderMe();
+}));
+
+async function checkServer(){
+  try{
+    const r=await fetch('/api/health');
+    if(r.ok){ const d=await r.json(); isLiveMode=d.mode==='live';
+      statusDot.classList.add('connected'); statusText.textContent=isLiveMode?'AI 就绪':'演示'; }
+  }catch{ statusText.textContent='离线'; }
+}
+
+// ── 记录 ─────────────────────────────
+async function capture(){
+  const raw=chatInput.value.trim(); if(!raw||isProcessing) return;
+  isProcessing=true; sendBtn.disabled=true;
+  const prev=squareGrid.innerHTML;
+  squareGrid.innerHTML='<div class="dots"><i></i><i></i><i></i></div><div class="loading-t">正在提炼...</div>';
+  chatInput.value=''; chatInput.style.height='auto';
+  try{
+    const resp=await fetch('/api/refine',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({rawText:raw,context:{recentTags:getTopTags(10),librarySize:inspirations.length}})});
+    if(!resp.ok){ const e=await resp.json(); throw new Error(e.error||'调用失败'); }
+    const d=await resp.json();
+    const insp={ id:Date.now(), raw, title:d.title, insight:d.insight, tags:d.tags||[],
+      related:d.related||'', actionHint:d.actionHint||'', time:new Date().toISOString(),
+      type:null, status:'new', progress:0, completed:false, logs:[] };
+    inspirations.unshift(insp); save();
+    renderSquares(); openDetail(insp.id);
+  }catch(err){ squareGrid.innerHTML=prev; showToast(err.message||'失败'); }
+  isProcessing=false; sendBtn.disabled=!chatInput.value.trim();
+}
+
+function renderSquares(){
+  if(!inspirations.length){
+    squareGrid.innerHTML='<div class="empty" style="grid-column:1/-1"><div class="e-mark"></div><p>还没有灵感<br>在下面随手记一条</p></div>';
+    updateBadge(); return;
+  }
+  squareGrid.innerHTML = inspirations.map(i=>{
+    const mark = i.completed?'done' : (i.type==='execute'?'exec' : i.type==='incubate'?'incu':'');
+    const tag = i.completed ? '已落实' : (i.type==='execute'?'执行中' : i.type==='incubate'?'孵化中':'待定性');
+    return `<div class="sq ${i.completed?'done':''}" onclick="openDetail(${i.id})">
+      <div class="sq-title">${esc(i.title||'未命名')}</div>
+      <div class="sq-foot"><span class="sq-tag">${tag}</span><span class="sq-mark ${mark}"></span></div>
+    </div>`;
+  }).join('');
+  updateBadge();
+}
+
+// ── 详情弹层 ─────────────────────────
+function openDetail(id){
+  const i=inspirations.find(x=>x.id===id); if(!i) return;
+  const tagHtml=(i.tags||[]).map(t=>`<span class="sh-tag">${esc(t)}</span>`).join('');
+  let actionHtml='';
+  if(!i.type){
+    actionHtml=`<div class="sh-act">
+      <button class="pri" onclick="setType(${i.id},'execute')">定为执行型</button>
+      <button class="inc" onclick="setType(${i.id},'incubate')">定为孵化型</button></div>
+      <div style="font-size:11px;color:var(--faint);margin-top:9px;line-height:1.6">执行型会进入落实追踪；孵化型先放着，等想法更成熟再转执行。</div>`;
+  }else if(i.type==='execute'&&!i.completed){
+    const opt=DUE_OPTS.find(o=>o.days===(i.dueDays===undefined?7:i.dueDays));
+    actionHtml=`<div class="sh-act">
+      <button class="pri" onclick="openPush(${i.id})">记录推进</button>
+      <button onclick="completeInsp(${i.id})">标记落实</button></div>
+      <div class="due-line">周期：${opt?opt.label:'一周'} <span onclick="askDue(${i.id})">改周期</span></div>`;
+  }else if(i.type==='execute'&&i.completed){
+    actionHtml=`<div class="sh-act"><button onclick="openDetail(${i.id})">查看成就</button></div>`;
+  }else{
+    actionHtml=`<div class="sh-act">
+      <button class="pri" onclick="setType(${i.id},'execute')">转为执行型</button>
+      <button onclick="openPush(${i.id})">补充想法</button></div>`;
+  }
+  const logs=(i.logs||[]).length?`<div class="sh-sec">推进记录</div>`+i.logs.map(l=>
+    `<div class="log-item"><span class="lg-d">${l.date.slice(5,10)}</span><span>${esc(l.text)}</span></div>`).join(''):'';
+
+  $('#detailSheet').innerHTML=`
+    <button class="sh-x" onclick="closeMask('#detailMask')">×</button>
+    <h3>${esc(i.title||'未命名灵感')}</h3>
+    <div class="sh-sub" style="display:flex;justify-content:space-between;align-items:center">
+      <span>${fmt(i.time)}${i.completed&&i.completedAt?` · 完成于 ${fmt(i.completedAt)}`:''}</span>
+      <span class="edit-link" onclick="openEdit(${i.id})">编辑</span>
+    </div>
+    <div class="sh-tags">${tagHtml}</div>
+    <div class="sh-raw">${esc(i.raw||'')}</div>
+    <div class="sh-ins">${esc(i.insight||'')}</div>
+    ${i.related?`<div style="font-size:12px;color:var(--accent);line-height:1.65;margin-bottom:10px">关联：${esc(i.related)}</div>`:''}
+    ${i.actionHint?`<div style="font-size:12px;color:var(--sub);line-height:1.65">建议：${esc(i.actionHint)}</div>`:''}
+    ${logs}
+    <div class="sh-sec">接下来</div>
+    ${actionHtml}`;
+  $('#detailMask').classList.add('show');
+}
+function closeMask(s){ $(s).classList.remove('show'); }
+
+// ── 编辑灵感细节 ──────────────────────
+function openEdit(id){
+  const i=inspirations.find(x=>x.id===id); if(!i) return;
+  $('#detailSheet').innerHTML=`
+    <button class="sh-x" onclick="closeMask('#detailMask')">×</button>
+    <h3>编辑灵感</h3>
+    <div class="sh-sub">改完点保存，AI 提炼的内容也能手动修正</div>
+    <div class="ed-field">
+      <label>标题</label>
+      <input class="ed-in" id="edTitle" value="${esc(i.title||'')}" placeholder="一句话概括">
+    </div>
+    <div class="ed-field">
+      <label>原始记录</label>
+      <textarea class="ed-ta" id="edRaw" placeholder="你当时写下的话">${esc(i.raw||'')}</textarea>
+    </div>
+    <div class="ed-field">
+      <label>洞察</label>
+      <textarea class="ed-ta" id="edInsight" placeholder="更深一层的理解">${esc(i.insight||'')}</textarea>
+    </div>
+    <div class="ed-field">
+      <label>标签（用逗号分隔）</label>
+      <input class="ed-in" id="edTags" value="${esc((i.tags||[]).join('，'))}" placeholder="社会观察，心理">
+    </div>
+    <div class="ed-field">
+      <label>关联</label>
+      <input class="ed-in" id="edRelated" value="${esc(i.related||'')}" placeholder="与其他想法的关系">
+    </div>
+    <div class="ed-field">
+      <label>行动建议</label>
+      <input class="ed-in" id="edHint" value="${esc(i.actionHint||'')}" placeholder="下一步可以做什么">
+    </div>
+    <div class="sh-act" style="margin-top:16px">
+      <button class="pri" onclick="saveEdit(${i.id})">保存</button>
+      <button onclick="openDetail(${i.id})">取消</button>
+    </div>
+    <div style="margin-top:14px">
+      <button class="del-btn" onclick="deleteInsp(${i.id})">删除这条灵感</button>
+    </div>`;
+  $('#detailMask').classList.add('show');
+}
+function saveEdit(id){
+  const i=inspirations.find(x=>x.id===id); if(!i) return;
+  const title=$('#edTitle').value.trim();
+  if(!title){ showToast('标题不能为空'); return; }
+  i.title=title;
+  i.raw=$('#edRaw').value.trim();
+  i.insight=$('#edInsight').value.trim();
+  i.related=$('#edRelated').value.trim();
+  i.actionHint=$('#edHint').value.trim();
+  const tagRaw=$('#edTags').value.trim();
+  i.tags = tagRaw ? tagRaw.split(/[,，、\s]+/).filter(Boolean).slice(0,8) : [];
+  i.editedAt=new Date().toISOString();
+  save(); renderSquares(); renderTrack();
+  openDetail(id);
+  showToast('已保存');
+}
+function deleteInsp(id){
+  if(!confirm('确定删除这条灵感？不可恢复')) return;
+  inspirations=inspirations.filter(x=>x.id!==id);
+  save(); closeMask('#detailMask'); renderSquares(); renderTrack();
+  showToast('已删除');
+}
+
+// ── 选择落实周期 ──────────────────────
+const DUE_OPTS=[
+  {label:'一周',  days:7,  desc:'7 天内落地' },
+  {label:'双周',  days:14, desc:'14 天内落地'},
+  {label:'一个月',days:30, desc:'30 天内落地'},
+  {label:'长期',  days:null,desc:'不设截止，但有节奏地督促'},
+];
+function askDue(id){
+  const i=inspirations.find(x=>x.id===id); if(!i) return;
+  const cur=i.dueDays||null;
+  $('#pushSheet').innerHTML=`
+    <button class="sh-x" onclick="closeMask('#pushMask')">×</button>
+    <h3>预计多久落地？</h3>
+    <div class="sh-sub">${esc(i.title||'')}</div>
+    <div class="due-grid">
+      ${DUE_OPTS.map(o=>`<div class="due-opt ${cur===o.days?'sel':''}" onclick="confirmDue(${id},${o.days===null?'null':o.days})">
+        <div class="do-label">${o.label}</div>
+        <div class="do-desc">${o.desc}</div>
+      </div>`).join('')}
+    </div>
+    <div style="font-size:11px;color:var(--faint);margin-top:12px;line-height:1.6">选长期也会持续督促：超过 7 天没推进会提醒你。</div>`;
+  $('#pushMask').classList.add('show');
+}
+function confirmDue(id,days){
+  setType(id,'execute',days);
+  closeMask('#pushMask');
+}
+
+function setType(id,type,days){
+  const i=inspirations.find(x=>x.id===id); if(!i) return;
+  // 执行型且未指定周期 → 先让用户选
+  if(type==='execute'&&days===undefined){ askDue(id); return; }
+  i.type=type;
+  if(type==='execute'){
+    i.status='executing';
+    i.dueDays=days;
+    i.dueDate = days ? new Date(Date.now()+days*86400000).toISOString() : null;
+    i.startedAt=i.startedAt||new Date().toISOString();
+    const n=inspirations.filter(x=>x.type==='execute'&&!x.completed&&isThisMonth(x.time)).length;
+    if(n>settings.overloadThreshold)
+      setTimeout(()=>showToast('本月执行型 '+n+' 个，超过聚焦线 '+settings.overloadThreshold+'，注意别贪多'),400);
+    const opt=DUE_OPTS.find(o=>o.days===days);
+    showToast('已加入落实追踪 · '+(opt?opt.label:'长期'));
+  }else{ i.status='incubating'; showToast('已放入孵化，想法成熟后再转执行'); }
+  save(); closeMask('#detailMask'); renderSquares(); renderTrack();
+}
+
+// ── 推进（有意义的喂养）───────────────
+function openPush(id){
+  const i=inspirations.find(x=>x.id===id); if(!i) return;
+  pushTargetId=id;
+  const isExec=i.type==='execute';
+  $('#pushSheet').innerHTML=`
+    <button class="sh-x" onclick="closeMask('#pushMask')">×</button>
+    <h3>${isExec?'这次你做了什么？':'补充一个想法'}</h3>
+    <div class="sh-sub">${esc(i.title||'')}</div>
+    <textarea class="push-in" id="pushText" placeholder="${isExec?'例如：查了老年社区的资料，联系了两位受访者':'例如：这和鲍曼说的消费社会有关...'}"></textarea>
+    <div style="font-size:11px;color:var(--faint);margin:9px 0 13px;line-height:1.6">
+      ${isExec?'写清楚做了什么，这条灵感才算真的往前走。每一次记录都会让成长更扎实。':'补充的想法会留在这条灵感里，帮它慢慢变成熟。'}
+    </div>
+    <div class="sh-act"><button class="pri" onclick="submitPush()">记录</button><button onclick="closeMask('#pushMask')">取消</button></div>`;
+  $('#pushMask').classList.add('show');
+  setTimeout(()=>$('#pushText')?.focus(),300);
+}
+function submitPush(){
+  const i=inspirations.find(x=>x.id===pushTargetId); if(!i) return;
+  const t=$('#pushText').value.trim();
+  if(!t){ showToast('写点什么再记录'); return; }
+  i.logs=i.logs||[];
+  i.logs.push({date:new Date().toISOString(),text:t});
+  i.lastPushAt=new Date().toISOString();
+  i.startedAt=i.startedAt||new Date().toISOString();
+  if(i.type==='execute'){
+    i.progress=Math.min(95,(i.progress||0)+Math.max(15, Math.round(80/(i.logs.length+1))));
+    const v=catValue();
+    showToast('已记录推进 · 进度 '+i.progress+'%');
+  }else{
+    i.feedCount=(i.feedCount||0)+1;
+    showToast('想法已补充，它更饱满了');
+  }
+  save(); closeMask('#pushMask'); closeMask('#detailMask'); renderSquares(); renderTrack();
+}
+
+function completeInsp(id){
+  const i=inspirations.find(x=>x.id===id); if(!i) return;
+  i.completed=true; i.completedAt=new Date().toISOString(); i.progress=100; i.status='done';
+  save(); closeMask('#detailMask'); renderSquares(); renderTrack();
+  showToast('已落实，生成成就');
+  setTimeout(()=>showAchievement(i.id),500);
+}
+function days(from,to){ return Math.max(1,Math.ceil((new Date(to)-new Date(from))/86400000)); }
+
+function showAchievement(id){
+  const i=inspirations.find(x=>x.id===id); if(!i) return;
+  const d=days(i.time,i.completedAt);
+  const steps=[`记录 · ${fmt(i.time)}`];
+  if(i.startedAt) steps.push(`开始执行 · ${fmt(i.startedAt)}`);
+  (i.logs||[]).forEach(l=>steps.push(`${l.date.slice(5,10)} · ${l.text.slice(0,18)}${l.text.length>18?'…':''}`));
+  steps.push(`落实完成 · ${fmt(i.completedAt)}`);
+  $('#detailSheet').innerHTML=`
+    <button class="sh-x" onclick="closeMask('#detailMask')">×</button>
+    <div class="ach" style="margin:0">
+      <div class="ach-h">成就 · 灵感已落实</div>
+      <div class="ach-title">${esc(i.title||'未命名灵感')}</div>
+      <div class="ach-nums">
+        <div class="ach-num"><div class="n">${d}</div><div class="l">天完成</div></div>
+        <div class="ach-num"><div class="n">${(i.logs||[]).length}</div><div class="l">次推进</div></div>
+        <div class="ach-num"><div class="n">${(i.tags||[]).length}</div><div class="l">个标签</div></div>
+      </div>
+      <div class="ach-path">${steps.map(s=>{
+        const p=s.indexOf(' · ');
+        return `<div class="p-step"><span class="p-d">${s.slice(0,p)}</span><span>${esc(s.slice(p+3))}</span></div>`;
+      }).join('')}</div>
+    </div>`;
+  $('#detailMask').classList.add('show');
+}
+
+// ── 落实页 ───────────────────────────
+function renderTrack(){
+  const exec=inspirations.filter(i=>i.type==='execute');
+  const incu=inspirations.filter(i=>i.type==='incubate');
+  const active=exec.filter(i=>!i.completed), done=exec.filter(i=>i.completed);
+
+  const urges=[];
+  active.forEach(i=>{
+    if(!i.dueDate) return;
+    const left=Math.ceil((new Date(i.dueDate)-Date.now())/86400000);
+    if(left<0) urges.push('「'+esc(i.title)+'」已逾期 '+(-left)+' 天，推进或重新评估');
+    else if(left<=1) urges.push('「'+esc(i.title)+'」'+(left===0?'今天':'明天')+'到期');
+    else if(left<=3) urges.push('「'+esc(i.title)+'」还剩 '+left+' 天');
+  });
+  active.forEach(i=>{
+    const last=i.lastPushAt||i.time;
+    const silent=Math.floor((Date.now()-new Date(last).getTime())/86400000);
+    if(silent>=7) urges.push('「'+esc(i.title)+'」已 '+silent+' 天没推进');
+  });
+  const n=active.filter(i=>isThisMonth(i.time)).length;
+  if(n>settings.overloadThreshold) urges.unshift('本月执行型 '+n+' 个，超过聚焦线 '+settings.overloadThreshold+'，建议砍掉或延后');
+
+  if(urges.length){ urge.className='urge show'; urge.innerHTML='<div class="urge-h">需要关注</div>'+urges.map(u=>'<div class="urge-i">'+u+'</div>').join(''); }
+  else { urge.className='urge'; urge.innerHTML=''; }
+
+  if(!exec.length&&!incu.length){
+    trackContent.innerHTML='<div class="empty"><div class="e-mark"></div><p>还没有要落实的灵感<br>去记录一条，再定为执行型</p></div>';
+    return;
+  }
+  let html='';
+  if(active.length||done.length){
+    html+='<div class="sec-label">执行追踪 · '+active.length+' 进行 / '+done.length+' 已落实</div>';
+    active.concat(done).forEach(i=>{
+      if(i.completed){ html+=achCard(i); return; }
+      const left=i.dueDate?Math.ceil((new Date(i.dueDate)-Date.now())/86400000):null;
+      let dueCls='',dueTxt='无期限';
+      if(left!==null){ if(left<0){dueCls='over';dueTxt='逾期 '+(-left)+' 天';} else if(left<=2){dueCls='soon';dueTxt='剩 '+left+' 天';} else dueTxt='剩 '+left+' 天'; }
+      const logs=(i.logs||[]).slice(-3);
+      html+=`<div class="track-card">
+        <div class="tc-top"><div class="tc-title">${esc(i.title)}</div><div class="tc-due ${dueCls}">${dueTxt}</div></div>
+        <div class="bar"><div class="bar-fill" style="width:${i.progress||0}%"></div></div>
+        <div class="tc-actions">
+          <button class="pri" onclick="openPush(${i.id})">记录推进</button>
+          <button class="ok" onclick="completeInsp(${i.id})">标记落实</button>
+        </div>
+        ${logs.length?`<div class="log-list">${logs.map(l=>`<div class="log-item"><span class="lg-d">${l.date.slice(5,10)}</span><span>${esc(l.text)}</span></div>`).join('')}</div>`:''}
+      </div>`;
+    });
+  }
+  if(incu.length){
+    html+='<div class="sec-label" style="margin-top:16px">孵化中 · '+incu.length+' 条</div>';
+    incu.forEach(i=>{
+      const logs=(i.logs||[]).slice(-2);
+      html+=`<div class="track-card">
+        <div class="tc-top"><div class="tc-title">${esc(i.title)}</div><div class="tc-due">${(i.logs||[]).length} 次补充</div></div>
+        <div class="tc-actions">
+          <button class="pri" onclick="openPush(${i.id})">补充想法</button>
+          <button onclick="setType(${i.id},'execute')">转执行</button>
+        </div>
+        ${logs.length?`<div class="log-list">${logs.map(l=>`<div class="log-item"><span class="lg-d">${l.date.slice(5,10)}</span><span>${esc(l.text)}</span></div>`).join('')}</div>`:''}
+      </div>`;
+  });
+  }
+  trackContent.innerHTML=html;
+}
+function achCard(i){
+  const d=days(i.time,i.completedAt);
+  return `<div class="ach">
+    <div class="ach-h">成就 · 已落实</div>
+    <div class="ach-title">${esc(i.title)}</div>
+    <div class="ach-nums">
+      <div class="ach-num"><div class="n">${d}</div><div class="l">天完成</div></div>
+      <div class="ach-num"><div class="n">${(i.logs||[]).length}</div><div class="l">次推进</div></div>
+    </div>
+    <div class="ach-path"><div class="p-step"><span class="p-d">记录</span><span>${fmt(i.time)}</span></div>
+      <div class="p-step"><span class="p-d">落实</span><span>${fmt(i.completedAt)} · 用时 ${d} 天</span></div></div>
+  </div>`;
+}
+
+function updateBadge(){
+  let c=0;
+  inspirations.filter(i=>i.type==='execute'&&!i.completed).forEach(i=>{
+    if(!i.dueDate) return;
+    const left=Math.ceil((new Date(i.dueDate)-Date.now())/86400000);
+    if(left<=3) c++;
+  });
+  if(c){ trackBadge.style.display='inline-block'; trackBadge.textContent=c; }
+  else trackBadge.style.display='none';
+}
+
+// ── 催熟：真实著作引用 ────────────────
+function renderRipen(){
+  const row=$('#pickRow'), box=$('#citeContent');
+  if(!inspirations.length){ row.innerHTML=''; box.innerHTML='<div class="empty"><div class="e-mark"></div><p>先记录一条灵感<br>再回来找它的思想源头</p></div>'; return; }
+  if(!selectedRipenId) selectedRipenId=inspirations[0].id;
+  row.innerHTML=inspirations.slice(0,12).map(i=>
+    `<div class="pick ${i.id===selectedRipenId?'sel':''}" onclick="pickRipen(${i.id})">${esc((i.title||'').slice(0,10))}</div>`).join('');
+  loadCites(selectedRipenId);
+}
+function pickRipen(id){ selectedRipenId=id; renderRipen(); }
+async function loadCites(id){
+  const box=$('#citeContent');
+  const i=inspirations.find(x=>x.id===id); if(!i){ box.innerHTML=''; return; }
+  box.innerHTML='<div class="dots"><i></i><i></i><i></i></div><div class="loading-t">正在检索相关著作...</div>';
+  try{
+    const resp=await fetch('/api/ripen',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({inspiration:{title:i.title,insight:i.insight,tags:i.tags,raw:i.raw}})});
+    if(!resp.ok) throw new Error((await resp.json()).error||'请求失败');
+    const d=await resp.json();
+    const cites=(d.citations||[]);
+    if(!cites.length){ box.innerHTML='<div class="empty"><div class="e-mark"></div><p>暂未找到匹配著作</p></div>'; return; }
+    box.innerHTML=cites.map(c=>`
+      <div class="cite">
+        ${c.chapter?`<div class="c-ch">${esc(c.chapter)}</div>`:''}
+        <div class="c-book">${esc(c.title)}</div>
+        <div class="c-meta">${esc(c.author||'')}${c.year?' · '+esc(String(c.year)):''}</div>
+        ${c.quote?`<div class="c-quote">${esc(c.quote)}</div>`:''}
+        <div class="c-rel"><b>与你的灵感</b>：${esc(c.relevance||'')}</div>
+      </div>`).join('');
+  }catch(e){ box.innerHTML='<div class="empty"><div class="e-mark"></div><p>'+esc(e.message)+'</p></div>'; }
+}
+
+// ── 我的 ─────────────────────────────
+async function renderMe(){
+  const done=inspirations.filter(i=>i.completed);
+  const avg=done.length?Math.round(done.reduce((a,i)=>a+days(i.time,i.completedAt),0)/done.length):0;
+  const pushes=inspirations.reduce((a,i)=>a+((i.logs||[]).length),0);
+  const stage=catStage();
+  const next=CAT_STAGES[stage+1];
+  const v=catValue();
+  const growPct = next ? Math.min(100,(v-CAT_STAGES[stage].need)/(next.need-CAT_STAGES[stage].need)*100) : 100;
+
+  $('#meContent').innerHTML=`
+    <div class="stat-row">
+      <div class="stat"><div class="n">${inspirations.length}</div><div class="l">灵感</div></div>
+      <div class="stat"><div class="n" style="color:var(--green)">${done.length}</div><div class="l">已落实</div></div>
+      <div class="stat"><div class="n" style="color:var(--accent)">${pushes}</div><div class="l">次推进</div></div>
+    </div>
+
+    <div class="cat-box">
+      <div class="cat-fig">${catSVG(stage)}</div>
+      <div class="cat-name">${esc(settings.catName||'小光')}</div>
+      <div class="cat-stage">${CAT_STAGES[stage].name} · 成长值 ${v}${next?' / '+next.need:''}</div>
+      <div class="cat-mood">${catMood()}</div>
+      <div class="bar" style="margin:11px 0 0"><div class="bar-fill" style="width:${growPct}%;background:var(--amber)"></div></div>
+      <div class="cat-rename">
+        <input id="catNameIn" value="${esc(settings.catName||'小光')}" placeholder="给它起个名字">
+        <button onclick="saveCatName()">命名</button>
+      </div>
+      <div style="font-size:10.5px;color:var(--faint);margin-top:9px;line-height:1.6">它随你落实的灵感一起长大。每记录一次推进、每落实一条，它都会更成熟。</div>
+    </div>
+
+    <div class="growth">
+      <div class="cb-title">成长路径</div>
+      <div class="g-row"><span class="g-l">累计落实</span><span class="g-v">${done.length} 条</span></div>
+      <div class="g-row"><span class="g-l">平均完成用时</span><span class="g-v">${avg?avg+' 天':'—'}</span></div>
+      <div class="g-row"><span class="g-l">记录推进次数</span><span class="g-v">${pushes}</span></div>
+      <div class="g-row"><span class="g-l">连续记录</span><span class="g-v">${calcStreak()} 天</span></div>
+      <div class="g-row"><span class="g-l">使用标签</span><span class="g-v">${new Set(inspirations.flatMap(i=>i.tags||[])).size}</span></div>
+    </div>
+
+    ${done.length?`<div class="growth"><div class="cb-title">成就一览</div>${done.slice(0,6).map(i=>{
+      const d=days(i.time,i.completedAt);
+      return `<div class="g-row"><span class="g-l">${esc((i.title||'').slice(0,16))}</span><span class="g-v" style="color:var(--green);font-size:13px">${d} 天</span></div>`;
+    }).join('')}</div>`:''}
+
+    <div class="card-box">
+      <div class="cb-title">聚焦保护</div>
+      <label>每月最多同时进行几个执行型？</label>
+      <div style="display:flex;align-items:center;gap:7px">
+        <input type="number" id="thIn" min="1" max="20" value="${settings.overloadThreshold}">
+        <span style="font-size:12px;color:var(--faint)">个 / 月</span>
+      </div>
+      <div class="hint">超过就提醒你聚焦，别贪多嚼不烂。</div>
+      <button class="save" onclick="saveThreshold()">保存</button>
+    </div>
+
+    <div class="card-box">
+      <div class="cb-title">人设定位</div>
+      <div id="personaBox"><span style="font-size:12px;color:var(--faint)">记录灵感后 AI 会分析你的创作人设</span></div>
+    </div>
+
+    <button class="export-btn" onclick="exportData()">导出数据</button>
+    <button class="export-btn" onclick="clearAll()" style="color:var(--red);border-color:#EDD9D7">清空所有</button>`;
+  loadPersona();
+}
+function saveCatName(){
+  const v=$('#catNameIn').value.trim(); if(!v){ showToast('名字不能为空'); return; }
+  settings.catName=v; localStorage.setItem('lingguang_settings',JSON.stringify(settings));
+  renderMe(); showToast('它现在叫 '+v);
+}
+function saveThreshold(){
+  const v=parseInt($('#thIn').value);
+  if(!v||v<1){ showToast('请输入有效数字'); return; }
+  settings.overloadThreshold=v; localStorage.setItem('lingguang_settings',JSON.stringify(settings));
+  renderTrack(); updateBadge(); showToast('已保存');
+}
+async function loadPersona(){
+  const box=$('#personaBox'); if(!box||!inspirations.length) return;
+  box.innerHTML='<div class="dots" style="justify-content:flex-start;padding:8px 0"><i></i><i></i><i></i></div>';
+  try{
+    const r=await fetch('/api/persona',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({inspirations:inspirations.slice(0,20)})});
+    if(!r.ok) throw new Error('请求失败');
+    const d=await r.json();
+    box.innerHTML=`<div class="persona-type">${esc(d.type||'灵感收集者')}</div>
+      <div class="persona-arch">${esc(d.archetype||'')}</div>
+      ${(d.traits||[]).map(t=>`<div class="persona-tr">${esc(t)}</div>`).join('')}
+      ${d.blindSpot?`<div class="persona-bs">${esc(d.blindSpot)}</div>`:''}
+      ${d.suggest?`<div class="persona-sg">${esc(d.suggest)}</div>`:''}`;
+  }catch(e){ box.innerHTML='<span style="font-size:12px;color:var(--faint)">分析未完成</span>'; }
+}
+function calcStreak(){
+  if(!inspirations.length) return 0;
+  const days=[...new Set(inspirations.map(i=>i.time?.slice(0,10)||''))].sort().reverse();
+  let s=0; const today=new Date().toISOString().slice(0,10);
+  for(let i=0;i<days.length;i++){ const t=new Date(today); t.setDate(t.getDate()-i);
+    if(days[i]===t.toISOString().slice(0,10)) s++; else break; }
+  return s;
+}
+
+// ── 语音输入 ─────────────────────────
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec=null, recording=false;
+if(SR){
+  rec=new SR(); rec.lang='zh-CN'; rec.continuous=true; rec.interimResults=true;
+  let finalTxt='';
+  rec.onstart=()=>{ recording=true; finalTxt=chatInput.value;
+    $('#voiceBtn').classList.add('rec'); showToast('听着呢，说完点一下'); };
+  rec.onresult=(e)=>{
+    let interim='';
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      const t=e.results[i][0].transcript;
+      if(e.results[i].isFinal) finalTxt+=t; else interim+=t;
+    }
+    chatInput.value=finalTxt+interim; autoH(); sendBtn.disabled=!chatInput.value.trim();
+  };
+  rec.onerror=(e)=>{ showToast('语音识别未成功'); stopRec(); };
+  rec.onend=()=>{ stopRec(); };
+  $('#voiceBtn').addEventListener('click',()=>{ recording?stopRec():rec.start(); });
+}else{
+  $('#voiceBtn').addEventListener('click',()=>showToast('当前浏览器不支持语音输入'));
+}
+function stopRec(){ if(recording&&rec){recording=false;rec.stop();} $('#voiceBtn').classList.remove('rec'); }
+
+// ── 工具 ─────────────────────────────
+function save(){ localStorage.setItem('lingguang_data',JSON.stringify(inspirations)); }
+function esc(s){ const d=document.createElement('div'); d.textContent=s==null?'':s; return d.innerHTML; }
+function fmt(iso){ return iso?iso.slice(0,10):''; }
+function isThisMonth(iso){ const d=new Date(iso),n=new Date(); return d.getFullYear()===n.getFullYear()&&d.getMonth()===n.getMonth(); }
+function getTopTags(n){ const f={}; inspirations.forEach(i=>(i.tags||[]).forEach(t=>{f[t]=(f[t]||0)+1;}));
+  return Object.entries(f).sort((a,b)=>b[1]-a[1]).slice(0,n).map(e=>e[0]); }
+let tt; function showToast(m){ const t=$('#toast'); t.textContent=m; t.classList.add('show');
+  clearTimeout(tt); tt=setTimeout(()=>t.classList.remove('show'),2600); }
+window.exportData=function(){
+  const b=new Blob([JSON.stringify(inspirations,null,2)],{type:'application/json'});
+  const u=URL.createObjectURL(b),a=document.createElement('a');
+  a.href=u; a.download='灵光-'+new Date().toISOString().slice(0,10)+'.json'; a.click(); URL.revokeObjectURL(u);
+};
+window.clearAll=function(){ if(confirm('确定清空所有灵感？不可恢复')){ inspirations=[]; save(); location.reload(); } };
+$$('.mask').forEach(m=>m.addEventListener('click',e=>{ if(e.target===m) m.classList.remove('show'); }));
+
+// 注册 Service Worker（支持添加到主屏幕 / 离线打开）
+if('serviceWorker' in navigator){ window.addEventListener('load',()=>{ navigator.serviceWorker.register('/sw.js').catch(()=>{}); }); }
+</script>
+</body>
+</html>
