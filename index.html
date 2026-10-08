@@ -420,6 +420,8 @@ async function checkServer(){
 // ── 记录 ─────────────────────────────
 async function capture(){
   const raw=chatInput.value.trim(); if(!raw||isProcessing) return;
+  if(!guardAI()) return;
+  bumpUsage();
   isProcessing=true; sendBtn.disabled=true;
   const prev=squareGrid.innerHTML;
   squareGrid.innerHTML='<div class="dots"><i></i><i></i><i></i></div><div class="loading-t">正在提炼...</div>';
@@ -838,6 +840,8 @@ function pickRipen(id){ selectedRipenId=id; renderRipen(); }
 async function loadCites(id){
   const box=$('#citeContent');
   const i=inspirations.find(x=>x.id===id); if(!i){ box.innerHTML=''; return; }
+  if(!guardAI()){ box.innerHTML='<div class="empty"><div class="e-mark"></div><p>免费次数用完，需授权码</p></div>'; return; }
+  bumpUsage();
   box.innerHTML='<div class="dots"><i></i><i></i><i></i></div><div class="loading-t">正在分析这条灵感...</div>';
   try{
     const resp=await fetch('/api/ripen',{method:'POST',headers:{'Content-Type':'application/json'},
@@ -934,6 +938,8 @@ function draftEditorHTML(inspId,d,tips,isSaved){
 }
 async function openDraft(id,force){
   const i=inspirations.find(x=>x.id===id); if(!i) return;
+  if(!guardAI()) return;
+  bumpUsage();
   // 已有草稿且不是强制重生成 → 直接打开上次那版
   const saved=getDrafts().find(d=>d.inspId===id);
   if(saved&&!force){ $('#pushSheet').innerHTML=draftEditorHTML(id,saved,'',true); $('#pushMask').classList.add('show'); return; }
@@ -1054,6 +1060,11 @@ async function renderMe(){
       <div id="personaBox"><span style="font-size:12px;color:var(--faint)">记录灵感后 AI 会分析你的创作人设</span></div>
     </div>
 
+    ${activated()
+      ? `<div class="card-box"><div class="cb-title">使用权限</div><div class="hint">已激活，可无限使用。</div></div>`
+      : `<div class="card-box"><div class="cb-title">免费额度</div><div class="hint">已用 ${usageN()} / ${freeLimit()} 次。用完后输入授权码即可继续。</div><button class="save" onclick="openAccess()">输入授权码</button></div>`}
+
+    <button class="export-btn" id="installBtn" onclick="doInstall()" style="margin-top:8px">装到桌面（像 App 一样打开）</button>
     <button class="export-btn" onclick="exportData()">导出数据（备份 / 传到另一台设备）</button>
     <button class="export-btn" onclick="importData()" style="margin-top:8px">导入数据（从另一台设备合并）</button>
     <input type="file" id="importFile" accept=".json,application/json" style="display:none" onchange="handleImport(event)">
@@ -1086,6 +1097,8 @@ function saveThreshold(){
 }
 async function loadPersona(){
   const box=$('#personaBox'); if(!box||!inspirations.length) return;
+  if(!guardAI()){ box.innerHTML='<span style="font-size:12px;color:var(--faint)">免费次数用完，需授权码</span>'; return; }
+  bumpUsage();
   box.innerHTML='<div class="dots" style="justify-content:flex-start;padding:8px 0"><i></i><i></i><i></i></div>';
   try{
     const r=await fetch('/api/persona',{method:'POST',headers:{'Content-Type':'application/json'},
@@ -1162,6 +1175,8 @@ async function submitClip(){
   const note=$('#clipNote')?$('#clipNote').value.trim():'';
   if(!url){ showToast('先粘贴链接'); return; }
   if(!note){ showToast('写一句为什么存它，才是有价值的灵感'); return; }
+  if(!guardAI()) return;
+  bumpUsage();
   $('#pushSheet').innerHTML=`
     <button class="sh-x" onclick="closeMask('#pushMask')">×</button>
     <h3>正在转存</h3>
@@ -1231,6 +1246,86 @@ function renderSyncBox(){
     <div class="hint">在手机和电脑填同一个码，点同步即可合并数据。换设备不再丢。</div>
     <button class="save" id="syncBtn" onclick="doSync()">同步</button>
   </div>`;
+}
+
+// ── 用量控制 + 授权码 ─────────────────
+function usageN(){ return parseInt(localStorage.getItem('lingguang_usage')||'0'); }
+function activated(){ return localStorage.getItem('lingguang_activated')==='1'; }
+function freeLimit(){ return settings.freeLimit||5; }
+function guardAI(){
+  if(activated()) return true;
+  if(usageN()<freeLimit()) return true;
+  openAccess();
+  return false;
+}
+function bumpUsage(){
+  if(activated()) return;
+  localStorage.setItem('lingguang_usage',String(usageN()+1));
+}
+function openAccess(){
+  $('#pushSheet').innerHTML=`
+    <button class="sh-x" onclick="closeMask('#pushMask')">×</button>
+    <h3>免费次数用完了</h3>
+    <div class="sh-sub">已免费使用 ${freeLimit()} 次，输入授权码继续</div>
+    <div class="ed-field">
+      <label>授权码</label>
+      <input class="ed-in" id="accessCode" placeholder="LG-XXXX-XXXX" autocomplete="off">
+    </div>
+    <div class="sh-act" style="margin-top:12px">
+      <button class="pri" onclick="submitAccess()">激活</button>
+      <button onclick="closeMask('#pushMask')">以后再说</button>
+    </div>
+    <div style="font-size:11px;color:var(--faint);margin-top:11px;line-height:1.65">还没有授权码？找作者要一个就行。</div>`;
+  $('#pushMask').classList.add('show');
+  setTimeout(()=>$('#accessCode')?.focus(),300);
+}
+async function submitAccess(){
+  const code=$('#accessCode')?$('#accessCode').value.trim():'';
+  if(!code){ showToast('请输入授权码'); return; }
+  showToast('验证中...');
+  try{
+    const r=await fetch('/api/verify',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({code})});
+    const d=await r.json();
+    if(!r.ok||!d.success){ showToast(d.error||'授权码无效'); return; }
+    localStorage.setItem('lingguang_activated','1');
+    closeMask('#pushMask');
+    showToast('激活成功，可以放心用了');
+    if($('#screen-me').classList.contains('active')) renderMe();
+  }catch(e){ showToast('验证失败：'+e.message); }
+}
+
+// ── 装到桌面 ──────────────────────────
+let deferredPrompt=null;
+window.addEventListener('beforeinstallprompt',(e)=>{
+  e.preventDefault(); deferredPrompt=e;
+  const b=$('#installBtn'); if(b) b.style.display='block';
+});
+function doInstall(){
+  if(deferredPrompt){
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.then(()=>{ deferredPrompt=null;
+      const b=$('#installBtn'); if(b) b.style.display='none'; });
+  }else{
+    $('#pushSheet').innerHTML=`
+      <button class="sh-x" onclick="closeMask('#pushMask')">×</button>
+      <h3>装到桌面</h3>
+      <div class="sh-sub">按你的设备选对应的方法</div>
+      <div class="ed-field">
+        <label>iPhone（Safari）</label>
+        <div style="font-size:12px;color:var(--sub);line-height:1.75">点底部<b>分享</b>按钮（方框向上箭头）→ 下滑找到<b>「添加到主屏幕」</b> → 确定</div>
+      </div>
+      <div class="ed-field">
+        <label>安卓（建议用 Chrome）</label>
+        <div style="font-size:12px;color:var(--sub);line-height:1.75">用 <b>Chrome</b> 打开本页（自带浏览器常不支持）→ 点右上<b>⋮</b>菜单 → <b>「添加到主屏幕」/「安装应用」</b></div>
+      </div>
+      <div class="ed-field">
+        <label>电脑（Chrome / Edge）</label>
+        <div style="font-size:12px;color:var(--sub);line-height:1.75">地址栏右侧的<b>安装图标</b>，或菜单里的「安装此站点」</div>
+      </div>
+      <div class="sh-act" style="margin-top:12px"><button class="pri" onclick="closeMask('#pushMask')">知道了</button></div>`;
+    $('#pushMask').classList.add('show');
+  }
 }
 
 // ── 工具 ─────────────────────────────
