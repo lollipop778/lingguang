@@ -184,6 +184,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hira
 .mat-jump{width:100%;margin-top:7px;padding:8px;border-radius:var(--r-sm);border:1px solid var(--line);background:var(--accent-soft);font-size:11.5px;cursor:pointer;color:var(--accent);font-family:inherit;letter-spacing:.2px}
 .mat-jump:active{opacity:.8}
 
+/* 转存来源行 */
+.src-line{display:flex;align-items:center;gap:7px;margin:8px 0 0;font-size:11px;flex-wrap:wrap}
+.sl-kind{background:var(--blue-soft);color:var(--blue);padding:2px 7px;border-radius:4px;letter-spacing:.3px}
+.sl-site{color:var(--sub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:150px}
+.sl-go{color:var(--accent);text-decoration:none;margin-left:auto;flex-shrink:0}
+.sl-go:active{opacity:.6}
+
 /* 草稿箱条目 */
 .draft-item{border:1px solid var(--line);border-radius:var(--r-sm);padding:11px 12px;margin-bottom:7px;cursor:pointer;transition:all .15s}
 .draft-item:last-of-type{margin-bottom:0}
@@ -292,6 +299,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hira
       <div class="input-bar">
         <div class="input-wrap">
           <textarea id="chatInput" placeholder="随手记下想法..." rows="1" style="overflow:hidden"></textarea>
+          <button class="icon-btn" id="linkBtn" title="转存链接">
+            <svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+          </button>
           <button class="icon-btn" id="voiceBtn" title="语音输入">
             <svg viewBox="0 0 24 24"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3z"/><path d="M19 11a7 7 0 0 1-14 0M12 18v3"/></svg>
           </button>
@@ -476,6 +486,7 @@ function openDetail(id){
       <span class="edit-link" onclick="openEdit(${i.id})">编辑</span>
     </div>
     <div class="sh-tags">${tagHtml}</div>
+    ${i.src?`<div class="src-line"><span class="sl-kind">${i.src.kind==='video'?'视频':'链接'}</span>${i.src.site?`<span class="sl-site">${esc(i.src.site)}</span>`:''}<a class="sl-go" href="${esc(i.src.url)}" target="_blank" rel="noopener">打开原链接</a></div>`:''}
 
     <div class="mat-box">
       <div class="mat-head">补充素材 <span>写笔记时直接用</span></div>
@@ -1027,6 +1038,8 @@ async function renderMe(){
 
     ${renderDraftsBox()}
 
+    ${renderSyncBox()}
+
     <div class="card-box">
       <div class="cb-title">聚焦保护</div>
       <label>每月最多同时进行几个执行型？</label>
@@ -1117,7 +1130,108 @@ if(SR){
 }else{
   $('#voiceBtn').addEventListener('click',()=>showToast('当前浏览器不支持语音输入'));
 }
+$('#linkBtn').addEventListener('click',openClip);
 function stopRec(){ if(recording&&rec){recording=false;rec.stop();} $('#voiceBtn').classList.remove('rec'); }
+
+// ── 链接转存（灵感屋）────────────────
+function openClip(){
+  $('#pushSheet').innerHTML=`
+    <button class="sh-x" onclick="closeMask('#pushMask')">×</button>
+    <h3>转存链接</h3>
+    <div class="sh-sub">YouTube / 网页链接，存进来慢慢剖析</div>
+    <div class="ed-field">
+      <label>链接</label>
+      <input class="ed-in" id="clipUrl" placeholder="粘贴 YouTube 或网页链接">
+    </div>
+    <div class="ed-field">
+      <label>为什么存它？（一句话，最关键）</label>
+      <textarea class="ed-ta" id="clipNote" placeholder="例：这个博主讲的时间管理法很反直觉"></textarea>
+    </div>
+    <div style="font-size:11px;color:var(--faint);line-height:1.65;margin-bottom:4px">
+      视频内容抓不到，所以你写的这句才是灵感的核心。标题会自动带过来。
+    </div>
+    <div class="sh-act" style="margin-top:12px">
+      <button class="pri" onclick="submitClip()">存进灵感屋</button>
+      <button onclick="closeMask('#pushMask')">取消</button>
+    </div>`;
+  $('#pushMask').classList.add('show');
+  setTimeout(()=>$('#clipUrl')?.focus(),300);
+}
+async function submitClip(){
+  const url=$('#clipUrl')?$('#clipUrl').value.trim():'';
+  const note=$('#clipNote')?$('#clipNote').value.trim():'';
+  if(!url){ showToast('先粘贴链接'); return; }
+  if(!note){ showToast('写一句为什么存它，才是有价值的灵感'); return; }
+  $('#pushSheet').innerHTML=`
+    <button class="sh-x" onclick="closeMask('#pushMask')">×</button>
+    <h3>正在转存</h3>
+    <div class="dots"><i></i><i></i><i></i></div><div class="loading-t">读取链接信息并提炼...</div>`;
+  try{
+    const r=await fetch('/api/clip',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({url,note})});
+    const d=await r.json();
+    if(!r.ok) throw new Error(d.error||'转存失败');
+    const now=new Date().toISOString();
+    const insp={
+      id:Date.now(), raw:note, title:d.title, insight:d.insight, tags:d.tags||[],
+      related:d.related||'', actionHint:d.actionHint||'', time:now, updatedAt:now,
+      type:null, status:'new', progress:0, completed:false, logs:[],
+      src:{kind:(d.meta&&d.meta.kind)||'link', url:(d.meta&&d.meta.source)||url,
+           site:(d.meta&&d.meta.author)||'', thumb:(d.meta&&d.meta.thumbnail)||''}
+    };
+    inspirations.unshift(insp); save(); renderSquares();
+    closeMask('#pushMask'); openDetail(insp.id);
+    showToast('已存进灵感屋');
+  }catch(e){
+    $('#pushSheet').innerHTML=`
+      <button class="sh-x" onclick="closeMask('#pushMask')">×</button>
+      <h3>转存失败</h3>
+      <div class="sh-sub">${esc(e.message)}</div>
+      <div class="sh-act" style="margin-top:12px">
+        <button class="pri" onclick="openClip()">重试</button>
+        <button onclick="closeMask('#pushMask')">关闭</button></div>`;
+  }
+}
+
+// ── 跨设备同步 ────────────────────────
+function getSyncCode(){ return localStorage.getItem('lingguang_sync_code')||''; }
+async function doSync(){
+  const code=$('#syncCodeIn')?$('#syncCodeIn').value.trim():'';
+  if(!code){ showToast('先设置一个同步码'); return; }
+  localStorage.setItem('lingguang_sync_code',code);
+  const btn=$('#syncBtn'); if(btn){ btn.disabled=true; btn.textContent='同步中...'; }
+  try{
+    // 同步前给每条标注"最后修改时间"，让服务端能判断哪份更新
+    const stamp=i=>Math.max(
+      new Date(i.updatedAt||0).getTime(),
+      new Date(i.editedAt||0).getTime(),
+      new Date(i.lastPushAt||0).getTime(),
+      new Date(i.completedAt||0).getTime(),
+      new Date(i.time||0).getTime()
+    );
+    inspirations.forEach(i=>{ i.updatedAt=new Date(stamp(i)||Date.now()).toISOString(); });
+    const r=await fetch('/api/sync',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({code,data:inspirations})});
+    const d=await r.json();
+    if(!r.ok) throw new Error(d.error||'同步失败');
+    inspirations=d.data||[]; save(); renderSquares();
+    showToast('同步完成 · 共 '+inspirations.length+' 条');
+    renderMe();
+  }catch(e){
+    showToast('同步失败：'+e.message);
+  }
+  if(btn){ btn.disabled=false; btn.textContent='同步'; }
+}
+function renderSyncBox(){
+  const code=getSyncCode();
+  return `<div class="card-box">
+    <div class="cb-title">设备同步</div>
+    <label>同步码（两台设备填一样的）</label>
+    <input class="ed-in" id="syncCodeIn" value="${esc(code)}" placeholder="例如 lingguang-8848" style="margin-bottom:4px">
+    <div class="hint">在手机和电脑填同一个码，点同步即可合并数据。换设备不再丢。</div>
+    <button class="save" id="syncBtn" onclick="doSync()">同步</button>
+  </div>`;
+}
 
 // ── 工具 ─────────────────────────────
 function save(){ localStorage.setItem('lingguang_data',JSON.stringify(inspirations)); }
