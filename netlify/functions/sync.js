@@ -26,7 +26,7 @@ exports.handler = async (event) => {
     const { getStore } = require('@netlify/blobs');
     store = getStore(STORE);
   } catch (e) {
-    return json({ error: '同步服务未启用（依赖未安装）' }, 503);
+    return json({ error: 'Blobs 不可用：' + (e && e.message ? e.message : String(e)), code: (e && e.code) || '' }, 503);
   }
 
   try {
