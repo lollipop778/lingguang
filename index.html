@@ -1038,8 +1038,6 @@ async function renderMe(){
 
     ${renderDraftsBox()}
 
-    ${renderSyncBox()}
-
     <div class="card-box">
       <div class="cb-title">聚焦保护</div>
       <label>每月最多同时进行几个执行型？</label>
@@ -1056,7 +1054,9 @@ async function renderMe(){
       <div id="personaBox"><span style="font-size:12px;color:var(--faint)">记录灵感后 AI 会分析你的创作人设</span></div>
     </div>
 
-    <button class="export-btn" onclick="exportData()">导出数据</button>
+    <button class="export-btn" onclick="exportData()">导出数据（备份 / 传到另一台设备）</button>
+    <button class="export-btn" onclick="importData()" style="margin-top:8px">导入数据（从另一台设备合并）</button>
+    <input type="file" id="importFile" accept=".json,application/json" style="display:none" onchange="handleImport(event)">
     <button class="export-btn" onclick="clearAll()" style="color:var(--red);border-color:#EDD9D7">清空所有</button>`;
   loadPersona();
 }
@@ -1248,6 +1248,35 @@ window.exportData=function(){
   a.href=u; a.download='灵光-'+new Date().toISOString().slice(0,10)+'.json'; a.click(); URL.revokeObjectURL(u);
 };
 window.clearAll=function(){ if(confirm('确定清空所有灵感？不可恢复')){ inspirations=[]; save(); location.reload(); } };
+window.importData=function(){ const f=$('#importFile'); if(f) f.click(); };
+window.handleImport=function(ev){
+  const file=ev.target.files&&ev.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    try{
+      const arr=JSON.parse(reader.result);
+      if(!Array.isArray(arr)) throw new Error('文件格式不对');
+      const stamp=i=>Math.max(
+        new Date(i.updatedAt||0).getTime(), new Date(i.editedAt||0).getTime(),
+        new Date(i.lastPushAt||0).getTime(), new Date(i.completedAt||0).getTime(),
+        new Date(i.time||0).getTime());
+      const map=new Map();
+      inspirations.forEach(i=>map.set(i.id,i));
+      let added=0,updated=0;
+      arr.forEach(item=>{
+        if(!item||item.id==null) return;
+        const cur=map.get(item.id);
+        if(!cur){ map.set(item.id,item); added++; return; }
+        if(stamp(item)>stamp(cur)){ map.set(item.id,item); updated++; }
+      });
+      inspirations=[...map.values()].sort((a,b)=>new Date(b.time||0)-new Date(a.time||0));
+      save(); renderSquares(); renderMe();
+      showToast(`导入完成：新增 ${added} 条，更新 ${updated} 条`);
+    }catch(e){ showToast('导入失败：'+e.message); }
+    ev.target.value='';
+  };
+  reader.readAsText(file);
+};
 $$('.mask').forEach(m=>m.addEventListener('click',e=>{ if(e.target===m) m.classList.remove('show'); }));
 
 // 注册 Service Worker（支持添加到主屏幕 / 离线打开）
