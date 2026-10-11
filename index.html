@@ -191,6 +191,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hira
 .sl-go{color:var(--accent);text-decoration:none;margin-left:auto;flex-shrink:0}
 .sl-go:active{opacity:.6}
 
+/* 更新记录 */
+.cl-item{display:flex;gap:9px;padding:6px 0;border-bottom:1px solid var(--line);font-size:12px;line-height:1.6}
+.cl-item:last-child{border:none}
+.cl-v{color:var(--accent);font-weight:600;flex-shrink:0;font-variant-numeric:tabular-nums}
+.cl-t{color:var(--sub)}
+
 /* 催熟追问 */
 .chat-box{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:13px;margin-top:14px}
 .chat-h{font-size:12px;font-weight:600;margin-bottom:9px;display:flex;align-items:baseline;gap:6px}
@@ -360,6 +366,16 @@ let settings = JSON.parse(localStorage.getItem('lingguang_settings') || '{"overl
 let isProcessing = false, isLiveMode = false;
 let pushTargetId = null;
 let selectedRipenId = null;
+
+// 版本号 + 更新日志（发布后用户可在「我的」页看到每次改了什么）
+const APP_VERSION = '1.5.0';
+const CHANGELOG = [
+  { v:'1.5.0', t:'催熟追问对话（每条限3轮），免费额度提到20次' },
+  { v:'1.4.0', t:'YouTube/链接转存；导入导出跨设备搬数据' },
+  { v:'1.3.0', t:'补充素材提到详情顶部，可直接连续添加；推进改轻量按钮' },
+  { v:'1.2.0', t:'一键小红书草稿，可直接编辑并保存进草稿箱' },
+  { v:'1.1.0', t:'催熟按灵感类型分流；实用型只给框架，不再编造内容' },
+];
 
 const chatInput = $('#chatInput'), sendBtn = $('#sendBtn'), squareGrid = $('#squareGrid');
 const statusDot = $('#statusDot'), statusText = $('#statusText');
@@ -1130,6 +1146,12 @@ async function renderMe(){
       ? `<div class="card-box"><div class="cb-title">使用权限</div><div class="hint">已激活，可无限使用。</div></div>`
       : `<div class="card-box"><div class="cb-title">免费额度</div><div class="hint">已用 ${usageN()} / ${freeLimit()} 次。用完后输入授权码即可继续。</div><button class="save" onclick="openAccess()">输入授权码</button></div>`}
 
+    <div class="card-box">
+      <div class="cb-title">版本 ${APP_VERSION}</div>
+      <div class="hint">最近更新：${CHANGELOG[0].t}</div>
+      <button class="save" onclick="showChangelog()">查看更新记录</button>
+    </div>
+
     <button class="export-btn" id="installBtn" onclick="doInstall()" style="margin-top:8px">装到桌面（像 App 一样打开）</button>
     <button class="export-btn" onclick="exportData()">导出数据（备份 / 传到另一台设备）</button>
     <button class="export-btn" onclick="importData()" style="margin-top:8px">导入数据（从另一台设备合并）</button>
@@ -1317,7 +1339,7 @@ function renderSyncBox(){
 // ── 用量控制 + 授权码 ─────────────────
 function usageN(){ return parseInt(localStorage.getItem('lingguang_usage')||'0'); }
 function activated(){ return localStorage.getItem('lingguang_activated')==='1'; }
-function freeLimit(){ return settings.freeLimit||5; }
+function freeLimit(){ return settings.freeLimit||20; }
 function guardAI(){
   if(activated()) return true;
   if(usageN()<freeLimit()) return true;
@@ -1359,6 +1381,16 @@ async function submitAccess(){
     showToast('激活成功，可以放心用了');
     if($('#screen-me').classList.contains('active')) renderMe();
   }catch(e){ showToast('验证失败：'+e.message); }
+}
+
+function showChangelog(){
+  $('#pushSheet').innerHTML=`
+    <button class="sh-x" onclick="closeMask('#pushMask')">×</button>
+    <h3>更新记录</h3>
+    <div class="sh-sub">当前版本 ${APP_VERSION} · 装到桌面后会自动更新，不用重装</div>
+    ${CHANGELOG.map(c=>`<div class="cl-item"><span class="cl-v">${c.v}</span><span class="cl-t">${esc(c.t)}</span></div>`).join('')}
+    <div class="sh-act" style="margin-top:14px"><button class="pri" onclick="closeMask('#pushMask')">知道了</button></div>`;
+  $('#pushMask').classList.add('show');
 }
 
 // ── 装到桌面 ──────────────────────────

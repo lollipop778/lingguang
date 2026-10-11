@@ -17,6 +17,10 @@ exports.handler = async (event) => {
     const input = String(code || '').trim().toUpperCase();
     if (!input) return json({ success: false, error: '请输入授权码' }, 400);
 
+    // 作者码：单独一个，永久豁免，不占用发给用户的授权码
+    const owner = (process.env.OWNER_CODE || '').trim().toUpperCase();
+    if (owner && input === owner) return json({ success: true, owner: true });
+
     if (list.includes(input)) return json({ success: true });
     return json({ success: false, error: '授权码无效' }, 403);
   } catch (err) {
