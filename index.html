@@ -992,7 +992,14 @@ function srcList(inspId){
   const s=[];
   if(i.raw) s.push('你的原始记录：'+i.raw);
   if(i.insight) s.push('AI 提炼的洞察：'+i.insight);
-  (i.logs||[]).forEach(l=>s.push('你记录的推进：'+l.text));
+  (i.logs||[]).forEach(l=>s.push('你补充的素材：'+l.text));
+  const r=(window._ripenMap&&window._ripenMap[inspId]);
+  if(r){
+    (r.citations||[]).slice(0,3).forEach(c=>s.push('催熟《'+(c.title||'')+'》：'+((c.relevance||'').slice(0,40))));
+    (r.outline&&r.outline.sections||[]).slice(0,3).forEach(x=>s.push('骨架板块：'+(x.name||'')));
+  }
+  const ch=getChat(inspId)||[];
+  ch.slice(-4).forEach(m=>s.push((m.role==='user'?'你的追问':'AI 的回答')+'：'+String(m.text||'').slice(0,60)));
   if((i.tags||[]).length) s.push('标签：'+(i.tags||[]).join('、'));
   return s;
 }
@@ -1033,8 +1040,10 @@ async function openDraft(id,force){
     <div class="dots"><i></i><i></i><i></i></div><div class="loading-t">AI 正在组织文案...</div>`;
   $('#pushMask').classList.add('show');
   try{
+    const ripenData=(window._ripenMap&&window._ripenMap[id])||null;
+    const chatData=getChat(id)||[];
     const resp=await fetch('/api/draft',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({inspiration:i,platform:'xiaohongshu'})});
+      body:JSON.stringify({inspiration:i,platform:'xiaohongshu',ripen:ripenData,chat:chatData})});
     if(!resp.ok) throw new Error((await resp.json()).error||'生成失败');
     const d=await resp.json();
     upsertDraft(id,d.title||'',d.body||'',d.tags||[]);   // 生成即存草稿，不会丢

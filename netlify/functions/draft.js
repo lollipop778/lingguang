@@ -6,7 +6,7 @@ exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return json({ ok: true });
 
   try {
-    const { inspiration, platform } = readBody(event);
+    const { inspiration, platform, ripen, chat } = readBody(event);
     const i = inspiration || {};
     if (!i.title && !i.raw) return json({ error: '缺少灵感内容' }, 400);
 
@@ -19,6 +19,30 @@ exports.handler = async (event) => {
     const tagStr = (i.tags || []).join('、') || '未分类';
     const isXhs = (platform || 'xiaohongshu') === 'xiaohongshu';
 
+    // 催熟参考 + 追问对话，也作为写笔记的素材（精简以控 token）
+    let ripenText = '';
+    const r = ripen || {};
+    const cites = Array.isArray(r.citations) ? r.citations.slice(0, 4) : [];
+    if (cites.length) {
+      ripenText += '\n\n可参考的著作观点（只取观点，不要照抄原文，也不要硬塞）：\n' +
+        cites.map(c => `- 《${c.title || ''}》${c.author || ''}：${(c.relevance || '').slice(0, 50)}`).join('\n');
+    }
+    const secs = (r.outline && Array.isArray(r.outline.sections)) ? r.outline.sections.slice(0, 6) : [];
+    if (secs.length) {
+      ripenText += '\n可参考的骨架板块：' + secs.map(s => (s.name || '') + '（' + (s.hint || '').slice(0, 20) + '）').join('；');
+    }
+    const acts = (r.structure && Array.isArray(r.structure.acts)) ? r.structure.acts.slice(0, 5) : [];
+    if (acts.length) {
+      ripenText += '\n可参考的结构：' + acts.map(a => (a.name || '') + '（' + (a.hint || '').slice(0, 20) + '）').join('；');
+    }
+
+    let chatText = '';
+    const ch = Array.isArray(chat) ? chat.slice(-6) : [];   // 最多 3 轮
+    if (ch.length) {
+      chatText = '\n\n你之前追问过的思路（可吸收其中的角度，但不要原样照搬成正文）：\n' +
+        ch.map(m => `${m.role === 'user' ? '问' : '答'}：${String(m.text || '').slice(0, 150)}`).join('\n');
+    }
+
     try {
       const result = await deepseekChat([
         { role: 'system', content: `你是一位${isXhs ? '小红书' : '社交媒体'}内容编辑。用户要把自己记录的一条灵感，写成一篇可以发布的笔记草稿。
@@ -27,7 +51,7 @@ exports.handler = async (event) => {
 标题：${i.title || ''}
 原始记录：${i.raw || ''}
 洞察：${i.insight || ''}
-标签：${tagStr}${logText}
+标签：${tagStr}${logText}${ripenText}${chatText}
 
 要求：
 1. title：一个吸引人的笔记标题，20字以内。可以用数字、痛点、悬念、反差，但不要标题党到失真
