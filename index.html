@@ -114,17 +114,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hira
 .empty p{font-size:13px;line-height:1.8}
 .empty .e-mark{width:28px;height:28px;margin:0 auto 14px;border:1px solid var(--line);border-radius:50%}
 
-/* ── 猫 ─────────────────────────────── */
-.cat-box{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:18px;margin-bottom:10px;text-align:center}
-.cat-box .cat-fig{display:flex;justify-content:center;margin-bottom:10px}
-.cat-box .cat-name{font-size:15px;font-weight:600;margin-bottom:2px}
-.cat-box .cat-stage{font-size:11px;color:var(--amber);letter-spacing:.4px;margin-bottom:3px}
-.cat-box .cat-mood{font-size:11.5px;color:var(--sub);line-height:1.5}
-.cat-box .cat-rename{margin-top:12px;display:flex;gap:6px}
-.cat-box input{flex:1;padding:7px 10px;border:1px solid var(--line);border-radius:var(--r-sm);font-size:12.5px;outline:none;font-family:inherit;background:var(--card);color:var(--text)}
-.cat-box input:focus{border-color:var(--accent)}
-.cat-box button{padding:7px 14px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--card);font-size:12px;cursor:pointer;color:var(--text)}
-.cat-box button:active{background:var(--accent-soft)}
+/* ── 节奏提示 ───────────────────────── */
+.pace-txt{font-size:13px;color:var(--sub);line-height:1.7}
 
 /* ── 催熟 ───────────────────────────── */
 .pick-row{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:14px;-webkit-overflow-scrolling:touch}
@@ -362,7 +353,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 
 let inspirations = JSON.parse(localStorage.getItem('lingguang_data') || '[]');
-let settings = JSON.parse(localStorage.getItem('lingguang_settings') || '{"overloadThreshold":5,"catName":"小光"}');
+let settings = JSON.parse(localStorage.getItem('lingguang_settings') || '{"overloadThreshold":5}');
 let isProcessing = false, isLiveMode = false;
 let pushTargetId = null;
 let selectedRipenId = null;
@@ -381,37 +372,8 @@ const chatInput = $('#chatInput'), sendBtn = $('#sendBtn'), squareGrid = $('#squ
 const statusDot = $('#statusDot'), statusText = $('#statusText');
 const trackContent = $('#trackContent'), urge = $('#urge'), trackBadge = $('#trackBadge');
 
-// ── 猫 SVG（纯线条，无 emoji）─────────
-const CAT_STAGES = [
-  { key:'kit',  name:'幼崽', need:0 },
-  { key:'grow', name:'成长', need:5 },
-  { key:'adult',name:'成猫', need:15 },
-];
-function catSVG(stage){
-  const open = stage >= 1, stripes = stage >= 2, scale = [.86,.94,1][stage];
-  const col = '#8A6A47';
-  return `<svg viewBox="0 0 100 112" width="${Math.round(94*scale)}" height="${Math.round(105*scale)}" fill="none" stroke="${col}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M31 30 L29 11 L45 22"/>
-    <path d="M69 30 L71 11 L55 22"/>
-    <circle cx="50" cy="45" r="21"/>
-    ${stripes ? `<path d="M45 26 L45 33" stroke-width="1.3"/><path d="M50 24 L50 32" stroke-width="1.3"/><path d="M55 26 L55 33" stroke-width="1.3"/>` : ''}
-    ${open
-      ? `<circle cx="42" cy="44" r="2.1" fill="${col}" stroke="none"/><circle cx="58" cy="44" r="2.1" fill="${col}" stroke="none"/>`
-      : `<path d="M38 45 Q42 48 46 45" stroke-width="1.4"/><path d="M54 45 Q58 48 62 45" stroke-width="1.4"/>`}
-    <path d="M50 52 L47.5 55.5 L52.5 55.5 Z" fill="${col}" stroke="none"/>
-    <path d="M50 56 Q47 59 44 57.5" stroke-width="1.2"/><path d="M50 56 Q53 59 56 57.5" stroke-width="1.2"/>
-    ${stripes ? `<path d="M36 54 L27 52" stroke-width="1.1"/><path d="M36 58 L27 58" stroke-width="1.1"/><path d="M64 54 L73 52" stroke-width="1.1"/><path d="M64 58 L73 58" stroke-width="1.1"/>` : ''}
-    <path d="M33 63 C27 78 29 99 50 99 C71 99 73 78 67 63"/>
-    <path d="M68 94 C80 95 84 80 78 71" stroke-width="1.6"/>
-  </svg>`;
-}
-function catValue(){
-  const pushes = inspirations.reduce((a,i)=>a+((i.logs||[]).length),0);
-  const done = inspirations.filter(i=>i.completed).length;
-  return pushes + done*3;
-}
-function catStage(){ const v=catValue(); let s=0; CAT_STAGES.forEach((x,i)=>{ if(v>=x.need) s=i; }); return s; }
-function catMood(){
+// ── 节奏提示（基于真实数据的温和督促，不做虚拟宠物）─────
+function paceText(){
   const last = inspirations.reduce((m,i)=>{
     const t = i.completedAt || i.lastPushAt || i.time;
     return (!m || new Date(t) > new Date(m)) ? t : m;
@@ -724,7 +686,6 @@ function submitPush(){
   i.startedAt=i.startedAt||new Date().toISOString();
   if(i.type==='execute'){
     i.progress=Math.min(95,(i.progress||0)+Math.max(15, Math.round(80/(i.logs.length+1))));
-    const v=catValue();
     showToast('已记录推进 · 进度 '+i.progress+'%');
   }else{
     i.feedCount=(i.feedCount||0)+1;
@@ -1095,29 +1056,16 @@ async function renderMe(){
   const done=inspirations.filter(i=>i.completed);
   const avg=done.length?Math.round(done.reduce((a,i)=>a+days(i.time,i.completedAt),0)/done.length):0;
   const pushes=inspirations.reduce((a,i)=>a+((i.logs||[]).length),0);
-  const stage=catStage();
-  const next=CAT_STAGES[stage+1];
-  const v=catValue();
-  const growPct = next ? Math.min(100,(v-CAT_STAGES[stage].need)/(next.need-CAT_STAGES[stage].need)*100) : 100;
-
   $('#meContent').innerHTML=`
     <div class="stat-row">
       <div class="stat"><div class="n">${inspirations.length}</div><div class="l">灵感</div></div>
       <div class="stat"><div class="n" style="color:var(--green)">${done.length}</div><div class="l">已落实</div></div>
-      <div class="stat"><div class="n" style="color:var(--accent)">${pushes}</div><div class="l">次推进</div></div>
+      <div class="stat"><div class="n" style="color:var(--accent)">${pushes}</div><div class="l">条素材</div></div>
     </div>
 
-    <div class="cat-box">
-      <div class="cat-fig">${catSVG(stage)}</div>
-      <div class="cat-name">${esc(settings.catName||'小光')}</div>
-      <div class="cat-stage">${CAT_STAGES[stage].name} · 成长值 ${v}${next?' / '+next.need:''}</div>
-      <div class="cat-mood">${catMood()}</div>
-      <div class="bar" style="margin:11px 0 0"><div class="bar-fill" style="width:${growPct}%;background:var(--amber)"></div></div>
-      <div class="cat-rename">
-        <input id="catNameIn" value="${esc(settings.catName||'小光')}" placeholder="给它起个名字">
-        <button onclick="saveCatName()">命名</button>
-      </div>
-      <div style="font-size:10.5px;color:var(--faint);margin-top:9px;line-height:1.6">它随你落实的灵感一起长大。每记录一次推进、每落实一条，它都会更成熟。</div>
+    <div class="card-box">
+      <div class="cb-title">当前节奏</div>
+      <div class="pace-txt">${paceText()}</div>
     </div>
 
     <div class="growth">
@@ -1181,11 +1129,6 @@ function renderDraftsBox(){
       </div>`).join('')}
     <div class="hint">点开可继续编辑。内容存在你本机，换设备不会同步。</div>
   </div>`;
-}
-function saveCatName(){
-  const v=$('#catNameIn').value.trim(); if(!v){ showToast('名字不能为空'); return; }
-  settings.catName=v; localStorage.setItem('lingguang_settings',JSON.stringify(settings));
-  renderMe(); showToast('它现在叫 '+v);
 }
 function saveThreshold(){
   const v=parseInt($('#thIn').value);
