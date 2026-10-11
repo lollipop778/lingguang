@@ -1,11 +1,11 @@
 // /api/chat - 催熟板块的追问对话
 // token 控制策略：
 //   1) 只传精简上下文（不传引用全文 quote，只传书名+章节+关联）
-//   2) 历史对话只保留最近 3 轮
-//   3) 前端限制每条灵感最多 3 轮、单条问题 <=200 字
+//   2) 历史对话滑动窗口只保留最近 10 轮（防上下文无限膨胀）
+//   3) 前端限制每条灵感最多 10 轮、单条问题 <=200 字
 const { deepseekChat, json, readBody } = require('../../src/lib/deepseek.js');
 
-const MAX_TURNS = 3;
+const MAX_TURNS = 10;
 
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return json({ ok: true });
@@ -42,8 +42,8 @@ exports.handler = async (event) => {
       ripenBrief += '\n已给出的结构：' + acts.slice(0, 5).map(a => (a.name || '') + '（' + (a.hint || '') + '）').join('；');
     }
 
-    // 历史只保留最近 3 轮
-    const hist = Array.isArray(history) ? history.slice(-MAX_TURNS) : [];
+    // 历史滑动窗口：只保留最近 10 轮（每轮含问答两条）
+    const hist = Array.isArray(history) ? history.slice(-MAX_TURNS * 2) : [];
     const messages = [
       { role: 'system', content: `你是内容顾问，正在帮用户深挖一条灵感。
 
@@ -56,7 +56,9 @@ ${ripenBrief || '（还没有给出参考内容）'}
 - 紧扣这条灵感，直接、具体、可执行，不写空话套话
 - 200 字以内，口语化
 - 不要编造具体事实、数据、书名（除非上面已给出）
-- 用户没给正文，所以不要假装在引用原文` },
+- 用户没给正文，所以不要假装在引用原文
+- 用户的问题可能超出上面已给的参考内容，这是完全正常的：此时就围绕这条灵感本身、
+  结合常识来回答，不要硬把话题拽回那些著作。跟着用户关心的问题走` },
       ...hist.map(h => ({ role: h.role === 'user' ? 'user' : 'assistant', content: String(h.text || '').slice(0, 500) })),
       { role: 'user', content: q },
     ];

@@ -923,12 +923,13 @@ async function loadCites(id){
 }
 
 // ── 催熟追问（限 3 轮 / 每条 200 字 / 精简上下文）────
+const CHAT_MAX = 10;   // 每条灵感最多追问轮数（滑动窗口，不无限膨胀）
 function getChat(id){ return JSON.parse(localStorage.getItem('lingguang_chat_'+id)||'[]'); }
 function setChat(id,arr){ localStorage.setItem('lingguang_chat_'+id,JSON.stringify(arr)); }
 function chatBoxHTML(id){
   const hist=getChat(id);
   const turns=Math.floor(hist.length/2);
-  const left=3-turns;
+  const left=CHAT_MAX-turns;
   const log=hist.map(h=>`<div class="chat-msg ${h.role==='user'?'me':'ai'}"><span class="cm-b">${esc(h.text)}</span></div>`).join('');
   return `<div class="chat-box">
     <div class="chat-h">继续追问 <span>${left>0?('还可 '+left+' 次'):'本条已达上限'}</span></div>
@@ -936,7 +937,7 @@ function chatBoxHTML(id){
     ${left>0?`<div class="chat-row">
       <textarea class="chat-in" id="chatQ" rows="1" placeholder="例如：这个观点怎么用在文章开头？"></textarea>
       <button class="chat-send" onclick="askRipen(${id})">问</button>
-    </div>`:'<div class="chat-empty" style="margin-top:6px">已问满 3 轮，换条灵感或自己整理吧</div>'}
+    </div>`:'<div class="chat-empty" style="margin-top:6px">已问满 '+CHAT_MAX+' 轮，换条灵感或自己整理吧</div>'}
   </div>`;
 }
 async function askRipen(id){
@@ -944,7 +945,7 @@ async function askRipen(id){
   if(!q){ showToast('写点什么再问'); return; }
   if(q.length>200){ showToast('控制在 200 字以内'); return; }
   const hist=getChat(id);
-  if(Math.floor(hist.length/2)>=3){ showToast('这条灵感最多追问 3 轮'); return; }
+  if(Math.floor(hist.length/2)>=CHAT_MAX){ showToast('这条灵感最多追问 '+CHAT_MAX+' 轮'); return; }
   if(!guardAI()) return;
   bumpUsage();
 
@@ -968,7 +969,7 @@ async function askRipen(id){
   const box=$('#chatLog');
   if(box){ box.innerHTML=hist.map(h=>`<div class="chat-msg ${h.role==='user'?'me':'ai'}"><span class="cm-b">${esc(h.text)}</span></div>`).join(''); }
   const head=document.querySelector('.chat-h span');
-  if(head){ const t=Math.floor(hist.length/2); head.textContent=t>=3?'本条已达上限':'还可 '+(3-t)+' 次'; }
+  if(head){ const t=Math.floor(hist.length/2); head.textContent=t>=CHAT_MAX?'本条已达上限':'还可 '+(CHAT_MAX-t)+' 次'; }
 }
 
 // ── 一键生成小红书草稿（可编辑 / 可保存 / 有草稿箱）──
@@ -1027,11 +1028,11 @@ function draftEditorHTML(inspId,d,tips,isSaved){
 }
 async function openDraft(id,force){
   const i=inspirations.find(x=>x.id===id); if(!i) return;
-  if(!guardAI()) return;
-  bumpUsage();
-  // 已有草稿且不是强制重生成 → 直接打开上次那版
+  // 已有草稿且不是强制重生成 → 直接打开上次那版（不调 AI，不扣次数）
   const saved=getDrafts().find(d=>d.inspId===id);
   if(saved&&!force){ $('#pushSheet').innerHTML=draftEditorHTML(id,saved,'',true); $('#pushMask').classList.add('show'); return; }
+  if(!guardAI()) return;
+  bumpUsage();
 
   $('#pushSheet').innerHTML=`
     <button class="sh-x" onclick="closeMask('#pushMask')">×</button>
@@ -1194,6 +1195,9 @@ function saveThreshold(){
 }
 async function loadPersona(){
   const box=$('#personaBox'); if(!box||!inspirations.length) return;
+  // 缓存：灵感条数没变就直接复用上次结果，避免每次切页都调 AI 扣次数
+  const pc=JSON.parse(localStorage.getItem('lingguang_persona')||'null');
+  if(pc&&pc.count===inspirations.length&&pc.html){ box.innerHTML=pc.html; return; }
   if(!guardAI()){ box.innerHTML='<span style="font-size:12px;color:var(--faint)">免费次数用完，需授权码</span>'; return; }
   bumpUsage();
   box.innerHTML='<div class="dots" style="justify-content:flex-start;padding:8px 0"><i></i><i></i><i></i></div>';
@@ -1207,6 +1211,7 @@ async function loadPersona(){
       ${(d.traits||[]).map(t=>`<div class="persona-tr">${esc(t)}</div>`).join('')}
       ${d.blindSpot?`<div class="persona-bs">${esc(d.blindSpot)}</div>`:''}
       ${d.suggest?`<div class="persona-sg">${esc(d.suggest)}</div>`:''}`;
+    try{ localStorage.setItem('lingguang_persona',JSON.stringify({count:inspirations.length,html:box.innerHTML})); }catch(e){}
   }catch(e){ box.innerHTML='<span style="font-size:12px;color:var(--faint)">分析未完成</span>'; }
 }
 function calcStreak(){
